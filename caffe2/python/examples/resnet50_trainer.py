@@ -181,6 +181,7 @@ def RunEpoch(
     # TODO: add loading from checkpoint
     log.info("Starting epoch {}/{}".format(epoch, args.num_epochs))
     epoch_iters = int(args.epoch_size / total_batch_size / num_shards)
+    ts = time.time()
     for i in range(epoch_iters):
         # This timeout is required (temporarily) since CUDA-NCCL
         # operators might deadlock when synchronizing between GPUs.
@@ -190,9 +191,12 @@ def RunEpoch(
             workspace.RunNet(train_model.net.Proto().name)
             t2 = time.time()
             dt = t2 - t1
-
-        fmt = "Finished iteration {}/{} of epoch {} ({:.2f} images/sec)"
-        log.info(fmt.format(i + 1, epoch_iters, epoch, total_batch_size / dt))
+        if i % 200 == 0 and i > 0:
+            fmt = "Finished iteration {}/{} of epoch {} ({:.2f} images/sec)"
+            te = time.time()
+            td = te - ts
+            log.info(fmt.format(i + 1, epoch_iters, epoch, 200 * total_batch_size / td))
+        
         prefix = "{}_{}".format(
             train_model._device_prefix,
             train_model._devices[0])
