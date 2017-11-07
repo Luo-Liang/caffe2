@@ -191,19 +191,21 @@ def RunEpoch(
             workspace.RunNet(train_model.net.Proto().name)
             t2 = time.time()
             dt = t2 - t1
-        if i % 200 == 0 and i > 0:
+        updateEvery = 200
+        if i % updateEvery == 0 and i > 0:
             fmt = "Finished iteration {}/{} of epoch {} ({:.2f} images/sec)"
             te = time.time()
             td = te - ts
-            log.info(fmt.format(i + 1, epoch_iters, epoch, 200 * total_batch_size / td))
+            log.info(fmt.format(i + 1, epoch_iters, epoch, updateEvery * total_batch_size / td))
+                     prefix = "{}_{}".format(
+                     train_model._device_prefix,
+                     train_model._devices[0])
+            accuracy = workspace.FetchBlob(prefix + '/accuracy')
+            loss = workspace.FetchBlob(prefix + '/loss')
+            train_fmt = "Training loss: {}, accuracy: {}"
+            log.info(train_fmt.format(loss, accuracy))
         
-        prefix = "{}_{}".format(
-            train_model._device_prefix,
-            train_model._devices[0])
-        accuracy = workspace.FetchBlob(prefix + '/accuracy')
-        loss = workspace.FetchBlob(prefix + '/loss')
-        train_fmt = "Training loss: {}, accuracy: {}"
-        log.info(train_fmt.format(loss, accuracy))
+        
 
     num_images = epoch * epoch_iters * total_batch_size
     prefix = "{}_{}".format(train_model._device_prefix, train_model._devices[0])
