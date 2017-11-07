@@ -1,3 +1,4 @@
+
 /**
  * Copyright (c) 2016-present, Facebook, Inc.
  *
@@ -25,6 +26,9 @@
 #include <gloo/algorithm.h>
 #include <gloo/common/error.h>
 #include <gloo/context.h>
+#include <cstdlib>
+#include <cassert>
+#include <iostream>
 
 namespace caffe2 {
 namespace gloo {
@@ -74,7 +78,28 @@ class AllreduceOp final : public Operator<Context> {
 
  protected:
   void initialize() {
+    const char* algo = std::getenv("GLOO_ALGORITHM");
     Mode mode = HALVING_DOUBLING;
+    if(algo != NULL)
+    {
+      std::cout<<algo<<" Selected. " << std::endl;
+      if(strcmp(algo, "RING_FULL") == 0)
+      {
+        mode = RING_FULL;
+      }
+      else if(strcmp(algo, "RING_CHUNKED") == 0)
+      {
+        mode = RING_CHUNKED;
+      }
+      else if(strcmp(algo, "HALVING_DOUBLING") == 0)
+      {
+        mode = HALVING_DOUBLING;
+      }
+      else
+      {
+        assert(false);
+      }
+    }
     auto bytes = Input(1).nbytes();
 
     // Store which inputs/outputs this instance initialized with
