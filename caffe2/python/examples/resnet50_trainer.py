@@ -191,15 +191,13 @@ def RunEpoch(
             workspace.RunNet(train_model.net.Proto().name)
             t2 = time.time()
             dt = t2 - t1
-        updateEvery = 200
+        updateEvery = parser.notify_frequency
         if i % updateEvery == 0 and i > 0:
             fmt = "Finished iteration {}/{} of epoch {} ({:.2f} images/sec)"
             te = time.time()
             td = te - ts
             log.info(fmt.format(i + 1, epoch_iters, epoch, updateEvery * total_batch_size / td))
-                     prefix = "{}_{}".format(
-                     train_model._device_prefix,
-                     train_model._devices[0])
+            prefix = "{}_{}".format(train_model._device_prefix, train_model._devices[0])
             accuracy = workspace.FetchBlob(prefix + '/accuracy')
             loss = workspace.FetchBlob(prefix + '/loss')
             train_fmt = "Training loss: {}, accuracy: {}"
@@ -605,6 +603,7 @@ def main():
                         help="Transport to use for distributed run [tcp|ibverbs]")
     parser.add_argument("--distributed_interfaces", type=str, default="",
                         help="Network interfaces to use for distributed run")
+    parser.add_argument("--notify-frequency", type=int, help="Report average speed every...")
 
     args = parser.parse_args()
 
