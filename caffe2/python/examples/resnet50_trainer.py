@@ -191,7 +191,7 @@ def RunEpoch(
             workspace.RunNet(train_model.net.Proto().name)
             t2 = time.time()
             dt = t2 - t1
-        updateEvery = parser.notify_frequency
+        updateEvery = args.notify_frequency
         if i % updateEvery == 0 and i > 0:
             fmt = "Finished iteration {}/{} of epoch {} ({:.2f} images/sec)"
             te = time.time()
