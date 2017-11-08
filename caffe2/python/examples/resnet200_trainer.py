@@ -348,7 +348,7 @@ def Train(args):
                             BiasInitializer=initializer,
                             enable_tensor_core=args.enable_tensor_core,
                             float16_compute=args.float16_compute):
-            pred = resnet.create_resnet50(
+            pred = resnet.create_resnet200(
                 model,
                 "data",
                 num_input_channels=args.num_channels,
