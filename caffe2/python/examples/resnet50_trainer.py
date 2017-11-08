@@ -197,6 +197,7 @@ def RunEpoch(
             te = time.time()
             td = te - ts
             log.info(fmt.format(i + 1, epoch_iters, epoch, updateEvery * total_batch_size / td))
+            ts = time.time()
             #prefix = "{}_{}".format(train_model._device_prefix, train_model._devices[0])
             #accuracy = workspace.FetchBlob(prefix + '/accuracy')
             #loss = workspace.FetchBlob(prefix + '/loss')
