@@ -392,6 +392,7 @@ def Train(args):
                 stepsize=stepsz,
                 gamma=0.1
             )
+            print(opt)
         return opt
 
     # Define add_image_input function.
