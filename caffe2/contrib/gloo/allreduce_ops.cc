@@ -3,6 +3,7 @@
 #include <gloo/allreduce_halving_doubling.h>
 #include <gloo/allreduce_ring.h>
 #include <gloo/allreduce_ring_chunked.h>
+#include <gloo/allreduce_phub.h>
 #include <gloo/types.h>
 
 namespace caffe2 {
