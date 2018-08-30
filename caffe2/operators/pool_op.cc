@@ -1,19 +1,3 @@
-/**
- * Copyright (c) 2016-present, Facebook, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 // TODO(ataei): reduce the apparent redundancy of all the code below.
 #include "caffe2/operators/pool_op.h"
 #include "caffe2/utils/cpu_neon.h"
@@ -391,6 +375,25 @@ class AveragePool {
       runNeonAveragePool4x4p0s0NCHW(N, C, inputH, inputW, input, output);
       return true;
     }
+#else
+    (void)N;
+    (void)C;
+    (void)inputH;
+    (void)inputW;
+    (void)outputH;
+    (void)outputW;
+    (void)kH;
+    (void)kW;
+    (void)strideH;
+    (void)strideW;
+    (void)padT;
+    (void)padL;
+    (void)padB;
+    (void)padR;
+    (void)dilationH;
+    (void)dilationW;
+    (void)input;
+    (void)output;
 #endif
     return false;
   }
@@ -464,6 +467,25 @@ class MaxPool {
       runNeonMaxPool2x2p0s0NCHW(N, C, inputH, inputW, input, output);
       return true;
     }
+#else
+    (void)N;
+    (void)C;
+    (void)inputH;
+    (void)inputW;
+    (void)outputH;
+    (void)outputW;
+    (void)kH;
+    (void)kW;
+    (void)strideH;
+    (void)strideW;
+    (void)padT;
+    (void)padL;
+    (void)padB;
+    (void)padR;
+    (void)dilationH;
+    (void)dilationW;
+    (void)input;
+    (void)output;
 #endif
     return false;
   }
@@ -776,7 +798,8 @@ OPERATOR_SCHEMA(AveragePool)
     .NumInputs(1)
     .NumOutputs(1)
     .TensorInferenceFunction(ConvPoolOpBase<CPUContext>::TensorInferenceForPool)
-    .FillUsing(AveragePoolDocGenerator(""));
+    .FillUsing(AveragePoolDocGenerator(""))
+    .InheritOnnxSchema("AveragePool");
 
 REGISTER_CPU_OPERATOR(
     AveragePool1D,
@@ -786,7 +809,8 @@ OPERATOR_SCHEMA(AveragePool1D)
     .NumInputs(1)
     .NumOutputs(1)
     .TensorInferenceFunction(ConvPoolOpBase<CPUContext>::TensorInferenceForPool)
-    .FillUsing(AveragePoolDocGenerator("1D"));
+    .FillUsing(AveragePoolDocGenerator("1D"))
+    .InheritOnnxSchema("AveragePool");
 
 REGISTER_CPU_OPERATOR(
     AveragePool2D,
@@ -796,7 +820,8 @@ OPERATOR_SCHEMA(AveragePool2D)
     .NumInputs(1)
     .NumOutputs(1)
     .TensorInferenceFunction(ConvPoolOpBase<CPUContext>::TensorInferenceForPool)
-    .FillUsing(AveragePoolDocGenerator("2D"));
+    .FillUsing(AveragePoolDocGenerator("2D"))
+    .InheritOnnxSchema("AveragePool");
 
 REGISTER_CPU_OPERATOR(
     AveragePool3D,
@@ -806,7 +831,8 @@ OPERATOR_SCHEMA(AveragePool3D)
     .NumInputs(1)
     .NumOutputs(1)
     .TensorInferenceFunction(ConvPoolOpBase<CPUContext>::TensorInferenceForPool)
-    .FillUsing(AveragePoolDocGenerator("3D"));
+    .FillUsing(AveragePoolDocGenerator("3D"))
+    .InheritOnnxSchema("AveragePool");
 
 REGISTER_CPU_OPERATOR(MaxPool, PoolOp<float, CPUContext, MaxPool<float>>);
 
@@ -814,7 +840,8 @@ OPERATOR_SCHEMA(MaxPool)
     .NumInputs(1)
     .NumOutputs(1)
     .TensorInferenceFunction(ConvPoolOpBase<CPUContext>::TensorInferenceForPool)
-    .FillUsing(MaxPoolDocGenerator(""));
+    .FillUsing(MaxPoolDocGenerator(""))
+    .InheritOnnxSchema("MaxPool");
 
 REGISTER_CPU_OPERATOR(MaxPool1D, PoolOp<float, CPUContext, MaxPool<float>>);
 
@@ -822,7 +849,8 @@ OPERATOR_SCHEMA(MaxPool1D)
     .NumInputs(1)
     .NumOutputs(1)
     .TensorInferenceFunction(ConvPoolOpBase<CPUContext>::TensorInferenceForPool)
-    .FillUsing(MaxPoolDocGenerator("1D"));
+    .FillUsing(MaxPoolDocGenerator("1D"))
+    .InheritOnnxSchema("MaxPool");
 
 REGISTER_CPU_OPERATOR(MaxPool2D, PoolOp<float, CPUContext, MaxPool<float>>);
 
@@ -830,7 +858,8 @@ OPERATOR_SCHEMA(MaxPool2D)
     .NumInputs(1)
     .NumOutputs(1)
     .TensorInferenceFunction(ConvPoolOpBase<CPUContext>::TensorInferenceForPool)
-    .FillUsing(MaxPoolDocGenerator("2D"));
+    .FillUsing(MaxPoolDocGenerator("2D"))
+    .InheritOnnxSchema("MaxPool");
 
 REGISTER_CPU_OPERATOR(MaxPool3D, PoolOp<float, CPUContext, MaxPool<float>>);
 
@@ -838,5 +867,6 @@ OPERATOR_SCHEMA(MaxPool3D)
     .NumInputs(1)
     .NumOutputs(1)
     .TensorInferenceFunction(ConvPoolOpBase<CPUContext>::TensorInferenceForPool)
-    .FillUsing(MaxPoolDocGenerator("3D"));
+    .FillUsing(MaxPoolDocGenerator("3D"))
+    .InheritOnnxSchema("MaxPool");
 } // namespace caffe2

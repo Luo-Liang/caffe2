@@ -1,19 +1,3 @@
-/**
- * Copyright (c) 2016-present, Facebook, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 #include <iostream>
 
 #include "caffe2/core/net.h"
@@ -215,7 +199,7 @@ TEST(OperatorTest, CannotAccessParameterWithWrongType) {
   op_def.set_type("JustTest");
   op_def.add_input("input");
   op_def.add_output("output");
-  AddArgument<float>("arg0", 0.1, &op_def);
+  AddArgument<float>("arg0", 0.1f, &op_def);
   EXPECT_NE(ws.CreateBlob("input"), nullptr);
   OperatorBase op(op_def, &ws);
   EXPECT_FLOAT_EQ(op.GetSingleArgument<float>("arg0", 0.0), 0.1);
@@ -230,12 +214,12 @@ TEST(OperatorDeathTest, DISABLED_CannotAccessRepeatedParameterWithWrongType) {
   op_def.set_type("JustTest");
   op_def.add_input("input");
   op_def.add_output("output");
-  AddArgument<vector<float>>("arg0", vector<float>{0.1}, &op_def);
+  AddArgument<vector<float>>("arg0", vector<float>{0.1f}, &op_def);
   EXPECT_NE(ws.CreateBlob("input"), nullptr);
   OperatorBase op(op_def, &ws);
   auto args = op.GetRepeatedArgument<float>("arg0");
   EXPECT_EQ(args.size(), 1);
-  EXPECT_FLOAT_EQ(args[0], 0.1);
+  EXPECT_FLOAT_EQ(args[0], 0.1f);
   EXPECT_DEATH(op.GetRepeatedArgument<int>("arg0"),
                "Argument does not have the right field: expected ints");
 }
@@ -245,8 +229,7 @@ TEST(OperatorTest, TestDefaultValue) {
   OperatorDef op_def;
   Workspace ws;
   OperatorBase op(op_def, &ws);
-  EXPECT_FLOAT_EQ(
-      op.GetSingleArgument<float>("arg-nonexisting", 0.5), 0.5);
+  EXPECT_FLOAT_EQ(op.GetSingleArgument<float>("arg-nonexisting", 0.5f), 0.5f);
 }
 
 TEST(OperatorTest, TestSetUp) {

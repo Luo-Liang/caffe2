@@ -1,18 +1,3 @@
-# Copyright (c) 2016-present, Facebook, Inc.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-##############################################################################
-
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -103,6 +88,22 @@ class ParameterSharingTest(unittest.TestCase):
         self.assertNotEqual(model.get_param_info(p2), None)
         self.assertNotEqual(model.get_param_info(p1), model.get_param_info(p2))
         model.Validate()
+
+    def test_deep_hierarchy(self):
+        model = model_helper.ModelHelper(name="test")
+        with ParameterSharing({'a': 'b'}):
+            with scope.NameScope('a'):
+                with ParameterSharing({'c': 'd'}):
+                    with scope.NameScope('c'):
+                        with ParameterSharing({'e': 'f'}):
+                            with scope.NameScope('e'):
+                                p = model.create_param(
+                                    'w',
+                                    shape=[2],
+                                    initializer=Initializer("ConstantFill")
+                                )
+        self.assertNotEqual(model.get_param_info(p), None)
+
 
     def test_parameter_sharing_brew(self):
         # Test no sharing default scopes

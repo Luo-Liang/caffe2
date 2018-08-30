@@ -1,19 +1,3 @@
-/**
- * Copyright (c) 2016-present, Facebook, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 #include "caffe2/core/net.h"
 #include "caffe2/core/net_simple.h"
 
@@ -104,14 +88,16 @@ bool NetBase::RunAsync() {
   return DoRunAsync();
 }
 
-static NetObserverCreator GlobalNetObserverCreator = [](NetBase* net) {
-  // A no-op ObserverBase<NetBase> observer
-  return std::unique_ptr<NetObserver>(new NetObserver(net));
-};
+namespace {
+std::vector<NetObserverCreator>* GetNetObserverCreators() {
+  static std::vector<NetObserverCreator> creators;
+  return &creators;
+}
+} // namespace
 
-void SetGlobalNetObserverCreator(NetObserverCreator creator) {
-  GlobalNetObserverCreator = creator;
-  VLOG(1) << "Have set custom GlobalNetObserverCreator";
+void AddGlobalNetObserverCreator(NetObserverCreator creator) {
+  GetNetObserverCreators()->push_back(creator);
+  VLOG(1) << "Have set a custom GlobalNetObserverCreator";
 }
 
 unique_ptr<NetBase> CreateNet(const NetDef& net_def, Workspace* ws) {
@@ -132,7 +118,10 @@ unique_ptr<NetBase> CreateNet(
   }
   VLOG(1) << "Adding a global observer to a net";
   if (net) {
-    net->AttachObserver(GlobalNetObserverCreator(net.get()));
+    auto* observer_creators = GetNetObserverCreators();
+    for (auto& creator : *observer_creators) {
+      net->AttachObserver(creator(net.get()));
+    }
   }
   return net;
 }

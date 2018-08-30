@@ -1,19 +1,3 @@
-/**
- * Copyright (c) 2016-present, Facebook, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 #include "caffe2/operators/distance_op.h"
 
 namespace caffe2 {
@@ -99,7 +83,7 @@ bool L1DistanceGradientOp<float, CPUContext>::RunOnDevice() {
     for (int j = 0; j < D; ++j) {
       const float temp =
           (X.data<float>())[offset + j] - (Y.data<float>())[offset + j];
-      const float kEps = 1e-12;
+      const float kEps = 1e-12f;
       if (temp < -kEps) {
         dX->mutable_data<float>()[offset + j] = -(dDistance.data<float>())[i];
         dY->mutable_data<float>()[offset + j] = (dDistance.data<float>())[i];
@@ -239,6 +223,14 @@ bool DotProductOp<float, CPUContext>::RunOnDevice() {
   return true;
 }
 
+OpSchema::Cost CostInferenceForDotProduct(
+    const OperatorDef& def,
+    const vector<TensorShape>& in) {
+  struct OpSchema::Cost c = PointwiseCostInference<1>(def, in);
+  c.params_bytes = 0;
+  return c;
+}
+
 template <>
 bool DotProductGradientOp<float, CPUContext>::RunOnDevice() {
   auto& X = Input(X_IN);
@@ -359,9 +351,9 @@ OPERATOR_SCHEMA(SquaredL2Distance)
     .NumOutputs(1)
     .IdenticalTypeAndShapeOfInputDim(0, 0)
     .SetDoc(R"DOC(
-  Given two input float tensors X, Y, and produces one output float tensor
-  of the L2 difference between X and Y that is computed as ||(X - Y)^2 / 2||.
-  )DOC")
+Given two input float tensors X, Y, and produces one output float tensor
+of the L2 difference between X and Y that is computed as ||(X - Y)^2 / 2||.
+)DOC")
     .Input(0, "X", "1D or 2D input tensor")
     .Input(1, "Y", "1D or 2D input tensor (must have the same shape as X)")
     .Output(0, "Z", "1D output tensor");
@@ -390,9 +382,9 @@ OPERATOR_SCHEMA(L1Distance)
     .NumOutputs(1)
     .IdenticalTypeAndShapeOfInputDim(0, 0)
     .SetDoc(R"DOC(
-  Given two input float tensors X, Y, and produces one output float tensor
-  of the L1 difference between X and Y, computed as L1(x,y) = sum over |x-y|
-  )DOC")
+Given two input float tensors X, Y, and produces one output float tensor
+of the L1 difference between X and Y, computed as L1(x,y) = sum over |x-y|
+)DOC")
     .Input(0, "X", "1D or 2D input tensor")
     .Input(1, "Y", "1D or 2D input tensor (must have the same shape as X)")
     .Output(0, "Z", "1D output tensor");
@@ -423,12 +415,14 @@ OPERATOR_SCHEMA(DotProduct)
     .NumOutputs(1)
     .IdenticalTypeAndShapeOfInputDim(0, 0)
     .SetDoc(R"DOC(
-  Given two input float tensors X, Y, and produces one output float tensor
-  of the dot product between X and Y.
-  )DOC")
+Given two input float tensors X, Y, and produces one output float tensor
+of the dot product between X and Y.
+)DOC")
     .Input(0, "X", "1D or 2D input tensor")
     .Input(1, "Y", "1D or 2D input tensor (must have the same shape as X)")
-    .Output(0, "Z", "1D output tensor");
+    .Output(0, "Z", "1D output tensor")
+    .CostInferenceFunction(
+        OpSchema::CostInferenceFunctionType(CostInferenceForDotProduct));
 
 OPERATOR_SCHEMA(DotProductGradient).NumInputs(3).NumOutputs(2);
 
@@ -455,9 +449,9 @@ OPERATOR_SCHEMA(CosineSimilarity)
     .NumOutputs(1)
     .IdenticalTypeAndShapeOfInputDim(0, 0)
     .SetDoc(R"DOC(
-  Given two input float tensors X, Y, and produces one output float tensor
-  of the cosine similarity between X and Y.
-  )DOC")
+Given two input float tensors X, Y, and produces one output float tensor
+of the cosine similarity between X and Y.
+)DOC")
     .Input(0, "X", "1D or 2D input tensor")
     .Input(1, "Y", "1D or 2D input tensor (must have the same shape as X)")
     .Output(0, "Z", "1D output tensor");
@@ -488,14 +482,14 @@ OPERATOR_SCHEMA(DotProductWithPadding)
     .NumInputs(2)
     .NumOutputs(1)
     .SetDoc(R"DOC(
-  Given two input float tensors X, Y with different shapes and produces one
-  output float tensor of the dot product between X and Y. We currently support
-  two kinds of strategies to achieve this. Before doing normal dot_product 1)
-  pad the smaller tensor (using pad_value) to the same shape as the other one.
-  2) replicate the smaller tensor to the same shape as the other one. Note the
-  first dimension of X, Y must be equal. Only the second dimension of X or Y
-  can be padded.
-  )DOC")
+Given two input float tensors X, Y with different shapes and produces one
+output float tensor of the dot product between X and Y. We currently support
+two kinds of strategies to achieve this. Before doing normal dot_product 1)
+pad the smaller tensor (using pad_value) to the same shape as the other one.
+2) replicate the smaller tensor to the same shape as the other one. Note the
+first dimension of X, Y must be equal. Only the second dimension of X or Y
+can be padded.
+)DOC")
     .Input(0, "X", "1D or 2D input tensor")
     .Input(1, "Y", "1D or 2D input tensor")
     .Output(0, "Z", "1D output tensor")

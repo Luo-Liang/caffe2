@@ -1,24 +1,44 @@
-/**
- * Copyright (c) 2016-present, Facebook, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 #include "swish_op.h"
+#include "caffe2/core/types.h"
 #include "caffe2/operators/elementwise_op.h"
 #include "caffe2/utils/math.h"
 
 namespace caffe2 {
+struct SwishCPUFunctor {
+  template <typename T>
+  inline void
+  operator()(const int n, const T* x, T* y, CPUContext* /*device_context*/) {
+    ConstEigenVectorArrayMap<T> xM(x, n);
+    EigenVectorArrayMap<T>(y, n) = xM / (1. + (-xM).exp());
+  }
+};
+
+template <>
+template <typename T>
+bool SwishGradientOp<CPUContext>::DoRunWithType() {
+  auto& Xin = Input(X);
+  auto& Yin = Input(Y);
+  auto& DYin = Input(DY);
+  auto* DXout = Output(DX);
+  CAFFE_ENFORCE_EQ(Xin.size(), Yin.size());
+  CAFFE_ENFORCE_EQ(DYin.size(), Yin.size());
+  DXout->ResizeLike(Yin);
+
+  const float* Xdata = Xin.template data<float>();
+  const float* Ydata = Yin.template data<float>();
+  const float* dYdata = DYin.template data<float>();
+  float* dXdata = DXout->template mutable_data<float>();
+
+  EigenVectorArrayMap<float> dXvec(dXdata, DXout->size());
+  ConstEigenVectorArrayMap<float> Xvec(Xdata, Xin.size());
+  ConstEigenVectorArrayMap<float> Yvec(Ydata, Yin.size());
+  ConstEigenVectorArrayMap<float> dYvec(dYdata, DYin.size());
+
+  // dx = dy * (y + sigmoid(x)*(1-y))
+  dXvec = dYvec * (Yvec + (1. / (1. + (-Xvec).exp())) * (1. - Yvec));
+  return true;
+}
+
 REGISTER_CPU_OPERATOR(
     Swish,
     UnaryElementwiseOp<

@@ -1,18 +1,3 @@
-# Copyright (c) 2016-present, Facebook, Inc.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-##############################################################################
-
 ## @package workspace
 # Module caffe2.python.workspace
 from __future__ import absolute_import
@@ -50,7 +35,6 @@ SwitchWorkspace = C.switch_workspace
 RootFolder = C.root_folder
 Workspaces = C.workspaces
 BenchmarkNet = C.benchmark_net
-Predictor = C.Predictor
 GetStats = C.get_stats
 
 operator_tracebacks = defaultdict(dict)
@@ -59,8 +43,6 @@ is_asan = C.is_asan
 has_gpu_support = C.has_gpu_support
 if has_gpu_support:
     NumCudaDevices = C.num_cuda_devices
-    SetDefaultGPUID = C.set_default_gpu_id
-    GetDefaultGPUID = C.get_default_gpu_id
     GetCUDAVersion = C.get_cuda_version
     GetCuDNNVersion = C.get_cudnn_version
 
@@ -70,13 +52,14 @@ if has_gpu_support:
     GetDeviceProperties = C.get_device_properties
 else:
     NumCudaDevices = lambda: 0 # noqa
-    SetDefaultGPUID = lambda x: None # noqa
-    GetDefaultGPUID = lambda: 0 # noqa
     GetCuDNNVersion = lambda: 0 # noqa
     GetCuDNNVersion = lambda: 0 # noqa
     GetCudaPeerAccessPattern = lambda: np.array([]) # noqa
     GetDeviceProperties = lambda x: None # noqa
 
+IsNUMAEnabled = C.is_numa_enabled
+GetNumNUMANodes = C.get_num_numa_nodes
+GetBlobNUMANode = C.get_blob_numa_node
 
 def _GetFreeFlaskPort():
     """Get a free flask port."""
@@ -169,6 +152,10 @@ def CreateNet(net, overwrite=False, input_blobs=None):
     )
 
 
+def Predictor(init_net, predict_net):
+    return C.Predictor(StringifyProto(init_net), StringifyProto(predict_net))
+
+
 def GetOperatorCost(operator, blobs):
     return C.get_operator_cost(StringifyProto(operator), blobs)
 
@@ -191,11 +178,14 @@ def CallWithExceptionIntercept(func, op_id_fetcher, net_name, *args, **kwargs):
     except Exception:
         op_id = op_id_fetcher()
         net_tracebacks = operator_tracebacks.get(net_name, None)
-        print("Traceback for operator {} in network {}".format(op_id, net_name))
+        print('Original python traceback for operator {} in network `{}` in '
+              'exception above (most recent call last):'.format(
+                  op_id, net_name))
         if net_tracebacks and op_id in net_tracebacks:
             tb = net_tracebacks[op_id]
-            for line in tb:
-                print(':'.join(map(str, line)))
+            for line in reversed(tb):
+                print('  File "{}", line {}, in {}'.format(
+                    line[0], line[1], line[2]))
         raise
 
 

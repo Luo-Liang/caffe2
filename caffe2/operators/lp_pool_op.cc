@@ -1,19 +1,3 @@
-/**
- * Copyright (c) 2016-present, Facebook, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 // TODO: reduce the apparent redundancy of all the code below.
 #include "caffe2/operators/pool_op.h"
 
@@ -246,14 +230,12 @@ OPERATOR_SCHEMA(LpPool)
     .NumInputs(1)
     .NumOutputs(1)
     .SetDoc(R"DOC(
-
 LpPool consumes an input blob X and applies L-p pooling across the
 the blob according to kernel sizes, stride sizes, and pad lengths defined by the
 ConvPoolOpBase operator. L-p pooling consisting of taking the L-p norm of a
 subset of the input tensor according to the kernel size and downsampling the
 data into the output blob Y for further processing.
-
-  )DOC")
+)DOC")
     .Input(
         0,
         "X",

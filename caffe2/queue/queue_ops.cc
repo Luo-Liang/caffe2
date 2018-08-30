@@ -1,21 +1,6 @@
-/**
- * Copyright (c) 2016-present, Facebook, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 #include "queue_ops.h"
 #include <memory>
+#include "caffe2/utils/math.h"
 
 namespace caffe2 {
 
@@ -95,7 +80,12 @@ execution step.
 The 1st input is the queue and the last output is the status. The rest are
 data blobs.
 )DOC")
-    .Input(0, "weights", "Weights for sampling from multiple queues");
+    .Arg("weights", "Weights for sampling from multiple queues")
+    .Arg(
+        "table_idx_blob",
+        "The index of the blob (among the output blob list) "
+        "that will be used to store the index of the table chosen to read the "
+        "current batch.");
 
 NO_GRADIENT(CreateBlobsQueue);
 NO_GRADIENT(EnqueueBlobs);

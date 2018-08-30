@@ -1,19 +1,3 @@
-/**
- * Copyright (c) 2016-present, Facebook, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 #include "allreduce_ops.h"
 
 #include "caffe2/core/context_gpu.h"
@@ -22,6 +6,7 @@
 #include <gloo/cuda_allreduce_halving_doubling.h>
 #include <gloo/cuda_allreduce_ring.h>
 #include <gloo/cuda_allreduce_ring_chunked.h>
+#include <gloo/cuda_allreduce_phub.h>
 #include <gloo/types.h>
 
 namespace caffe2 {
@@ -69,6 +54,19 @@ void AllreduceOp<Context>::initializeHalvingDoubling() {
         init_.context,
         init_.template getOutputs<::gloo::float16>(),
         init_.size);
+  } else {
+    CAFFE_ENFORCE(false, "Unhandled type: ", init_.meta.name());
+  }
+}
+
+template <class Context>
+void AllreduceOp<Context>::initializePHub() {
+  if (init_.template IsType<float>()) {
+    algorithm_ = initializeAlgorithm<::gloo::CudaAllreducePHub, float>(
+      gpu_direct_,
+      init_.context,
+      init_.template getOutputs<float>(),
+      init_.size);
   } else {
     CAFFE_ENFORCE(false, "Unhandled type: ", init_.meta.name());
   }

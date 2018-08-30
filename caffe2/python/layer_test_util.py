@@ -1,18 +1,3 @@
-# Copyright (c) 2016-present, Facebook, Inc.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-##############################################################################
-
 ## @package layer_test_util
 # Module caffe2.python.layer_test_util
 from __future__ import absolute_import
@@ -69,7 +54,7 @@ class LayersTestCase(test_util.TestCase):
     def new_record(self, schema_obj):
         return schema.NewRecord(self.model.net, schema_obj)
 
-    def get_training_nets(self):
+    def get_training_nets(self, add_constants=False):
         """
         We don't use
         layer_model_instantiator.generate_training_nets_forward_only()
@@ -77,7 +62,10 @@ class LayersTestCase(test_util.TestCase):
         testing tricky
         """
         train_net = core.Net('train_net')
-        train_init_net = core.Net('train_init_net')
+        if add_constants:
+            train_init_net = self.model.create_init_net('train_init_net')
+        else:
+            train_init_net = core.Net('train_init_net')
         for layer in self.model.layers:
             layer.add_operators(train_net, train_init_net)
         return train_init_net, train_net

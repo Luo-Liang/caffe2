@@ -1,19 +1,3 @@
-/**
- * Copyright (c) 2016-present, Facebook, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 #ifndef CAFFE2_OPERATORS_GATHER_RANGES_TO_DENSE_OPS_H_
 #define CAFFE2_OPERATORS_GATHER_RANGES_TO_DENSE_OPS_H_
 
@@ -53,7 +37,13 @@ class GatherRangesToDenseOp final : public Operator<Context> {
     auto& data = Input(DATA);
     auto& ranges = Input(RANGES);
     CAFFE_ENFORCE_EQ(data.ndim(), 1, "Data has to be 1-D");
-    CAFFE_ENFORCE_EQ(ranges.ndim(), 3, "Data has to be 3-D");
+    CAFFE_ENFORCE_EQ(ranges.ndim(), 3, "Ranges has to be 3-D");
+    if (InputSize() == 3) {
+      auto& key = Input(KEY);
+      CAFFE_ENFORCE_EQ(key.ndim(), 1, "Key has to be 1-D");
+      CAFFE_ENFORCE(
+          key.meta().template Match<int64_t>(), "Key has to be type int64_t");
+    }
     CAFFE_ENFORCE_EQ(
         ranges.dim(1),
         lengths_.size(),
@@ -95,11 +85,37 @@ class GatherRangesToDenseOp final : public Operator<Context> {
             lengths_[j],
             "Range lengths missmatch for output #",
             j);
-        context_.template CopyItems<Context, Context>(
-            data.meta(),
-            rangeLength,
-            rawData + rangeStart * itemsize,
-            outputRawData[j] + i * itemsize * lengths_[j]);
+
+        if (InputSize() == 2) {
+          context_.template CopyItems<Context, Context>(
+              data.meta(),
+              rangeLength,
+              rawData + rangeStart * itemsize,
+              outputRawData[j] + i * itemsize * lengths_[j]);
+        } else {
+          auto& key = Input(KEY);
+          auto* key_data = key.template data<int64_t>();
+          vector<std::pair<int64_t, const char*>> buffer;
+          for (int b_i = 0; b_i < rangeLength; ++b_i) {
+            int64_t one_key_item = key_data[rangeStart + b_i];
+            auto* one_data_item = rawData + (rangeStart + b_i) * itemsize;
+            buffer.emplace_back(one_key_item, one_data_item);
+          }
+          std::sort(
+              buffer.begin(),
+              buffer.end(),
+              [](const std::pair<int64_t, const char*>& left,
+                 const std::pair<int64_t, const char*>& right) {
+                return left.first < right.first;
+              });
+          for (int b_i = 0; b_i < rangeLength; ++b_i) {
+            // Since this CPU only, directly copy to the destination.
+            std::memcpy(
+                outputRawData[j] + (i * lengths_[j] + b_i) * itemsize,
+                buffer[b_i].second,
+                itemsize);
+          }
+        }
       }
     }
     CAFFE_ENFORCE_EQ(rangesDataOffset, ranges.size());
@@ -107,7 +123,7 @@ class GatherRangesToDenseOp final : public Operator<Context> {
     return true;
   }
 
-  INPUT_TAGS(DATA, RANGES);
+  INPUT_TAGS(DATA, RANGES, KEY);
 
  private:
   vector<int> lengths_;

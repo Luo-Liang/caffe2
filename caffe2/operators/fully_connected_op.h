@@ -1,19 +1,3 @@
-/**
- * Copyright (c) 2016-present, Facebook, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 #ifndef CAFFE2_OPERATORS_FULLY_CONNECTED_OP_H_
 #define CAFFE2_OPERATORS_FULLY_CONNECTED_OP_H_
 
@@ -165,7 +149,10 @@ class FullyConnectedOp final : public Operator<Context> {
   bool float16_compute_;
 };
 
-template <class Context, class Engine = DefaultEngine>
+template <
+    class Context,
+    class Engine = DefaultEngine,
+    bool TransposeWeight = true>
 class FullyConnectedGradientOp : public Operator<Context> {
  public:
   USE_OPERATOR_CONTEXT_FUNCTIONS;
@@ -195,7 +182,8 @@ class FullyConnectedGradientOp : public Operator<Context> {
     const int M = X.size_to_dim(canonical_axis);
     const int K = X.size_from_dim(canonical_axis);
     const auto canonical_axis_w = W.canonical_axis_index(axis_w_);
-    const int N = W.size_to_dim(canonical_axis_w);
+    const int N = TransposeWeight ? W.size_to_dim(canonical_axis_w)
+                                  : W.size_from_dim(canonical_axis_w);
     CAFFE_ENFORCE(M * K == X.size());
     CAFFE_ENFORCE(K * N == W.size());
 
@@ -236,12 +224,12 @@ class FullyConnectedGradientOp : public Operator<Context> {
     math::Gemm<T_DY, Context, Engine>(
         CblasTrans,
         CblasNoTrans,
-        N,
-        K,
+        TransposeWeight ? N : K,
+        TransposeWeight ? K : N,
         M,
         1,
-        dY.template data<T_DY>(),
-        X.template data<T_X>(),
+        TransposeWeight ? dY.template data<T_DY>() : X.template data<T_X>(),
+        TransposeWeight ? X.template data<T_X>() : dY.template data<T_DY>(),
         0,
         dW->template mutable_data<T_DW>(),
         &context_,
@@ -274,7 +262,7 @@ class FullyConnectedGradientOp : public Operator<Context> {
       dX->ResizeLike(X);
       math::Gemm<T_DX, Context, Engine>(
           CblasNoTrans,
-          CblasNoTrans,
+          TransposeWeight ? CblasNoTrans : CblasTrans,
           M,
           K,
           N,

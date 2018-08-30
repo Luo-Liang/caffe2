@@ -1,25 +1,8 @@
-/**
- * Copyright (c) 2016-present, Facebook, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 #include "caffe2/core/init.h"
 #include "caffe2/core/context_gpu.h"
 #include "caffe2/core/net.h"
 #include "caffe2/core/operator.h"
 #include "caffe2/mpi/mpi_common.h"
-#include "google/protobuf/text_format.h"
 #include <gtest/gtest.h>
 
 CAFFE2_DEFINE_string(
@@ -62,7 +45,7 @@ const char kBcastNet[] = R"NET(
 
 TEST(MPITest, TestMPIBroadcast) {
   NetDef net_def;
-  CHECK(google::protobuf::TextFormat::ParseFromString(
+  CHECK(TextFormat::ParseFromString(
       string(kBcastNet), &net_def));
   // Let's set the network's constant fill value to be the mpi rank.
   auto* arg = net_def.mutable_op(1)->mutable_arg(1);
@@ -124,7 +107,7 @@ const char kReduceNet[] = R"NET(
 
 TEST(MPITest, TestMPIReduce) {
   NetDef net_def;
-  CHECK(google::protobuf::TextFormat::ParseFromString(
+  CHECK(TextFormat::ParseFromString(
       string(kReduceNet), &net_def));
   // Let's set the network's constant fill value to be the mpi rank.
   auto* arg = net_def.mutable_op(1)->mutable_arg(1);
@@ -190,7 +173,7 @@ const char kMPIAllgatherNet[] = R"NET(
 
 TEST(MPITest, TestMPIAllgather) {
   NetDef net_def;
-  CHECK(google::protobuf::TextFormat::ParseFromString(
+  CHECK(TextFormat::ParseFromString(
       string(kMPIAllgatherNet), &net_def));
   // Let's set the network's constant fill value to be the mpi rank.
   auto* arg = net_def.mutable_op(1)->mutable_arg(1);
@@ -253,7 +236,7 @@ const char kMPIAllreduceNet[] = R"NET(
 
 TEST(MPITest, TestMPIAllreduce) {
   NetDef net_def;
-  CHECK(google::protobuf::TextFormat::ParseFromString(
+  CHECK(TextFormat::ParseFromString(
       string(kMPIAllreduceNet), &net_def));
   // Let's set the network's constant fill value to be the mpi rank.
   auto* arg = net_def.mutable_op(1)->mutable_arg(1);
@@ -315,7 +298,7 @@ const char kInPlaceMPIAllreduceNet[] = R"NET(
 
 TEST(MPITest, TestInPlaceMPIAllreduce) {
   NetDef net_def;
-  CHECK(google::protobuf::TextFormat::ParseFromString(
+  CHECK(TextFormat::ParseFromString(
       string(kInPlaceMPIAllreduceNet), &net_def));
   // Let's set the network's constant fill value to be the mpi rank.
   auto* arg = net_def.mutable_op(1)->mutable_arg(1);

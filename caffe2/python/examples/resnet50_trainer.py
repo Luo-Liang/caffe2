@@ -1,18 +1,3 @@
-# Copyright (c) 2016-present, Facebook, Inc.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-##############################################################################
-
 # Module caffe2.python.examples.resnet50_trainer
 from __future__ import absolute_import
 from __future__ import division
@@ -26,12 +11,12 @@ import time
 import os
 
 from caffe2.python import core, workspace, experiment_util, data_parallel_model
-from caffe2.python import dyndep, optimizer
+from caffe2.python import data_parallel_model_utils, dyndep, optimizer
 from caffe2.python import timeout_guard, model_helper, brew
 from caffe2.proto import caffe2_pb2
 
 import caffe2.python.models.resnet as resnet
-from caffe2.python.modeling.initializers import Initializer, pFP16Initializer
+from caffe2.python.modeling.initializers import Initializer, PseudoFP16Initializer
 import caffe2.python.predictor.predictor_exporter as pred_exp
 import caffe2.python.predictor.predictor_py_utils as pred_utils
 from caffe2.python.predictor_constants import predictor_constants as predictor_constants
@@ -266,6 +251,11 @@ def Train(args):
     # Round down epoch size to closest multiple of batch size across machines
     global_batch_size = total_batch_size * args.num_shards
     epoch_iters = int(args.epoch_size / global_batch_size)
+
+    assert \
+        epoch_iters > 0, \
+        "Epoch size must be larger than batch size times shard count"
+
     args.epoch_size = epoch_iters * global_batch_size
     log.info("Using epoch size: {}".format(args.epoch_size))
 
@@ -340,7 +330,7 @@ def Train(args):
 
     # Model building functions
     def create_resnet50_model_ops(model, loss_scale):
-        initializer = (pFP16Initializer if args.dtype == 'float16'
+        initializer = (PseudoFP16Initializer if args.dtype == 'float16'
                        else Initializer)
 
         with brew.arg_scope([brew.conv, brew.fc],
@@ -444,10 +434,23 @@ def Train(args):
         post_sync_builder_fun=add_post_sync_ops,
         devices=gpus,
         rendezvous=rendezvous,
-        optimize_gradient_memory=True,
+        optimize_gradient_memory=False,
         cpu_device=args.use_cpu,
         shared_model=args.use_cpu,
+        combine_spatial_bn=args.use_cpu,
     )
+
+    if args.model_parallel:
+        # Shift half of the activations to another GPU
+        assert workspace.NumCudaDevices() >= 2 * args.num_gpus
+        activations = data_parallel_model_utils.GetActivationBlobs(train_model)
+        data_parallel_model_utils.ShiftActivationDevices(
+            train_model,
+            activations=activations[len(activations) // 2:],
+            shifts={g: args.num_gpus + g for g in range(args.num_gpus)},
+        )
+
+    data_parallel_model.OptimizeGradientMemory(train_model, {}, set(), False)
 
     workspace.RunNetOnce(train_model.param_init_net)
     workspace.CreateNet(train_model.net)
@@ -516,6 +519,7 @@ def Train(args):
         args.num_labels,
         args.base_learning_rate,
     )
+
     explog = experiment_util.ModelTrainerLog(expname, args)
 
     # Run the training one epoch a time
@@ -558,6 +562,8 @@ def main():
                         help="Comma separated list of GPU devices to use")
     parser.add_argument("--num_gpus", type=int, default=1,
                         help="Number of GPU devices (instead of --gpus)")
+    parser.add_argument("--model_parallel", type=bool, default=False,
+                        help="Split model over 2 x num_gpus")
     parser.add_argument("--num_channels", type=int, default=3,
                         help="Number of color channels")
     parser.add_argument("--image_size", type=int, default=227,
@@ -599,7 +605,7 @@ def main():
                         help='Data type used for training')
     parser.add_argument('--float16_compute', action='store_true',
                         help="Use float 16 compute, if available")
-    parser.add_argument('--enable-tensor-core', action='store_true',
+    parser.add_argument('--enable_tensor_core', action='store_true',
                         help='Enable Tensor Core math for Conv and FC ops')
     parser.add_argument("--distributed_transport", type=str, default="tcp",
                         help="Transport to use for distributed run [tcp|ibverbs]")

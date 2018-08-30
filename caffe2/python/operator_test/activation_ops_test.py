@@ -1,18 +1,3 @@
-# Copyright (c) 2016-present, Facebook, Inc.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-##############################################################################
-
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -115,6 +100,27 @@ class TestActivations(hu.HypothesisTestCase):
             "LeakyRelu",
             ["X"], ["Y" if not inplace else "X"],
             alpha=alpha)
+        self.assertReferenceChecks(gc, op, [X], leaky_relu_ref)
+        # Check over multiple devices
+        self.assertDeviceChecks(dc, op, [X], [0])
+
+    @given(X=hu.tensor(),
+           inplace=st.booleans(),
+           **hu.gcs)
+    def test_leaky_relu_default(self, X, inplace, gc, dc):
+        # go away from the origin point to avoid kink problems
+        X += 0.04 * np.sign(X)
+        X[X == 0.0] += 0.04
+
+        def leaky_relu_ref(X):
+            Y = X.copy()
+            neg_indices = X <= 0
+            Y[neg_indices] = Y[neg_indices] * 0.01
+            return (Y,)
+
+        op = core.CreateOperator(
+            "LeakyRelu",
+            ["X"], ["Y" if not inplace else "X"])
         self.assertReferenceChecks(gc, op, [X], leaky_relu_ref)
         # Check over multiple devices
         self.assertDeviceChecks(dc, op, [X], [0])

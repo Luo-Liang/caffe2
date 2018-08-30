@@ -1,20 +1,3 @@
-
-/**
- * Copyright (c) 2016-present, Facebook, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 #pragma once
 
 #include <algorithm>
@@ -35,7 +18,7 @@ namespace gloo {
 
 template <class Context>
 class AllreduceOp final : public Operator<Context> {
-  enum Mode { RING_FULL, RING_CHUNKED, HALVING_DOUBLING };
+  enum Mode { RING_FULL, RING_CHUNKED, HALVING_DOUBLING, PHUB };
 
  public:
   USE_OPERATOR_CONTEXT_FUNCTIONS;
@@ -95,6 +78,10 @@ class AllreduceOp final : public Operator<Context> {
       {
         mode = HALVING_DOUBLING;
       }
+      else if(strcmp(algo, "PHUB") == 0)
+      {
+        mode = PHUB;
+      }
       else
       {
         assert(false);
@@ -133,6 +120,8 @@ class AllreduceOp final : public Operator<Context> {
       case HALVING_DOUBLING:
         initializeHalvingDoubling();
         return;
+      case PHUB:
+        initializePHub();
     }
 
     CAFFE_ENFORCE(false, "Unreachable code");
@@ -141,6 +130,8 @@ class AllreduceOp final : public Operator<Context> {
   void initializeHalvingDoubling();
   void initializeRingFull();
   void initializeRingChunked();
+  void initializePHub();
+
 
   std::once_flag once_;
   std::unique_ptr<::gloo::Algorithm> algorithm_;
@@ -149,44 +140,6 @@ class AllreduceOp final : public Operator<Context> {
   // An instance is updated every time this op runs and is compared
   // to the reference instance for equality. If any parameter has
   // changed from run to run, the initialized algorithm is invalid.
-  struct GlooParameters {
-    std::shared_ptr<::gloo::Context> context;
-    std::vector<const void*> inputs;
-    std::vector<void*> outputs;
-    size_t size;
-    TypeMeta meta;
-
-    template <typename T>
-    std::vector<const T*> getInputs() {
-      std::vector<const T*> result;
-      result.reserve(inputs.size());
-      for (auto& input : inputs) {
-        result.push_back(reinterpret_cast<T*>(input));
-      }
-      return result;
-    }
-
-    template <typename T>
-    std::vector<T*> getOutputs() {
-      std::vector<T*> result;
-      result.reserve(outputs.size());
-      for (auto& output : outputs) {
-        result.push_back(reinterpret_cast<T*>(output));
-      }
-      return result;
-    }
-
-    template <typename T>
-    bool IsType() const {
-      return meta.Match<T>();
-    }
-
-    bool operator==(GlooParameters const& other) const {
-      return context == other.context && inputs == other.inputs &&
-          outputs == other.outputs && size == other.size;
-    }
-  };
-
   void update(GlooParameters& params) {
     params.context = OperatorBase::Input<std::shared_ptr<::gloo::Context>>(0);
     params.inputs.resize(InputSize() - 1);

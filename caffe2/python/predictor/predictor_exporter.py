@@ -1,18 +1,3 @@
-# Copyright (c) 2016-present, Facebook, Inc.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-##############################################################################
-
 ## @package predictor_exporter
 # Module caffe2.python.predictor.predictor_exporter
 from __future__ import absolute_import
@@ -28,6 +13,7 @@ import caffe2.python.predictor.serde as serde
 import caffe2.python.predictor.predictor_py_utils as utils
 from builtins import bytes
 import collections
+
 
 def get_predictor_exporter_helper(submodelNetName):
     """ constracting stub for the PredictorExportMeta
@@ -82,6 +68,12 @@ class PredictorExportMeta(collections.namedtuple(
         assert len(set(inputs)) == len(inputs), (
             "All inputs to the predictor should be unique")
         parameters = [str(p) for p in parameters]
+        assert set(parameters).isdisjoint(inputs), (
+            "Parameters and inputs are required to be disjoint. "
+            "Intersection: {}".format(set(parameters).intersection(inputs)))
+        assert set(parameters).isdisjoint(outputs), (
+            "Parameters and outputs are required to be disjoint. "
+            "Intersection: {}".format(set(parameters).intersection(outputs)))
         shapes = shapes or {}
 
         if isinstance(predict_net, (core.Net, core.Plan)):
@@ -125,12 +117,12 @@ class PredictorExportMeta(collections.namedtuple(
                                    self.name)
 
 
-def prepare_prediction_net(filename, db_type):
+def prepare_prediction_net(filename, db_type, device_option=None):
     '''
     Helper function which loads all required blobs from the db
     and returns prediction net ready to be used
     '''
-    metanet_def = load_from_db(filename, db_type)
+    metanet_def = load_from_db(filename, db_type, device_option)
 
     global_init_net = utils.GetNet(
         metanet_def, predictor_constants.GLOBAL_INIT_NET_TYPE)
@@ -154,6 +146,9 @@ def _global_init_net(predictor_export_meta):
         predictor_export_meta.parameters)
     net.Proto().external_input.extend([predictor_constants.PREDICTOR_DBREADER])
     net.Proto().external_output.extend(predictor_export_meta.parameters)
+
+    # Add the model_id in the predict_net to the global_init_net
+    utils.AddModelIdArg(predictor_export_meta, net.Proto())
     return net.Proto()
 
 
@@ -162,9 +157,9 @@ def get_meta_net_def(predictor_export_meta, ws=None):
     """
 
     ws = ws or workspace.C.Workspace.current
+    meta_net_def = metanet_pb2.MetaNetDef()
 
     # Predict net is the core network that we use.
-    meta_net_def = metanet_pb2.MetaNetDef()
     utils.AddNet(meta_net_def, predictor_export_meta.predict_init_name(),
                  utils.create_predict_init_net(ws, predictor_export_meta))
     utils.AddNet(meta_net_def, predictor_export_meta.global_init_name(),

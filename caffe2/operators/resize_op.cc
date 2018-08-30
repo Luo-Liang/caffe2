@@ -1,19 +1,3 @@
-/**
- * Copyright (c) 2016-present, Facebook, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 #include "caffe2/operators/resize_op.h"
 
 #include "caffe2/utils/cpu_neon.h"
@@ -162,14 +146,14 @@ OPERATOR_SCHEMA(ResizeNearest)
     .Arg("width_scale", "Scale along width dimension")
     .Arg("height_scale", "Scale along height dimension")
     .SetDoc(R"DOC(
-            Resizes the spatial dimensions of the input using nearest neighbor
-            interpolation. The `width_scale` and `height_scale` arguments
-            control the size of the output, which is given by:
-            output_width = floor(input_width * width_scale)
-            output_height = floor(output_height * height_scale)
-            )DOC")
-    .Input(0, "X", "1D input tensor")
-    .Output(0, "Y", "1D input tensor");
+Resizes the spatial dimensions of the input using nearest neighbor
+interpolation. The `width_scale` and `height_scale` arguments
+control the size of the output, which is given by:
+output_width = floor(input_width * width_scale)
+output_height = floor(output_height * height_scale)
+)DOC")
+    .Input(0, "X", "Input tensor")
+    .Output(0, "Y", "Output tensor");
 
 // Input: dY, output: dX
 OPERATOR_SCHEMA(ResizeNearestGradient)

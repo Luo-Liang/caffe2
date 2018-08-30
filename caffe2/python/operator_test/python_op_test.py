@@ -1,18 +1,3 @@
-# Copyright (c) 2016-present, Facebook, Inc.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-##############################################################################
-
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -25,11 +10,17 @@ import hypothesis.strategies as st
 import numpy as np
 import unittest
 
-try:
-    import numba
-    HAS_NUMBA = True
-except ImportError:
+if workspace.is_asan:
+    # Numba seems to be not compatible with ASAN (at least at Facebook)
+    # so if we are in asan mode, we disable Numba which further disables
+    # the numba python op test.
     HAS_NUMBA = False
+else:
+    try:
+        import numba
+        HAS_NUMBA = True
+    except ImportError:
+        HAS_NUMBA = False
 
 
 class PythonOpTest(hu.HypothesisTestCase):
@@ -59,6 +50,7 @@ class PythonOpTest(hu.HypothesisTestCase):
         for i in range(n):
             y = workspace.FetchBlob(str(i))
             np.testing.assert_almost_equal(x, y)
+
 
 if __name__ == "__main__":
     import unittest

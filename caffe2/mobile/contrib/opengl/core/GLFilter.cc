@@ -1,19 +1,3 @@
-/**
- * Copyright (c) 2016-present, Facebook, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 
 #include "GLFilter.h"
 #include <sstream>
@@ -514,7 +498,7 @@ GLint GLFilter::compileShader(GLenum target,
                               GLsizei count,
                               const GLchar** sources,
                               GLuint* shader) const {
-  GLint status;
+  GLint status = 1;
 
   *shader = glCreateShader(target);
   glShaderSource(*shader, count, sources, NULL);
@@ -542,7 +526,7 @@ GLint GLFilter::compileShader(GLenum target,
 
 /* Link a program with all currently attached shaders */
 GLint GLFilter::linkProgram(GLuint program) const {
-  GLint status;
+  GLint status = 1;
 
   glLinkProgram(program);
 
@@ -563,7 +547,7 @@ GLint GLFilter::linkProgram(GLuint program) const {
 
 /* Validate a program (for i.e. inconsistent samplers) */
 GLint GLFilter::validateProgram(GLuint program) const {
-  GLint status;
+  GLint status = 1;
 
   glValidateProgram(program);
 

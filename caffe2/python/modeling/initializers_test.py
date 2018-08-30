@@ -1,18 +1,3 @@
-# Copyright (c) 2016-present, Facebook, Inc.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-##############################################################################
-
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -21,7 +6,7 @@ from __future__ import unicode_literals
 import unittest
 from caffe2.python import brew, model_helper, workspace
 from caffe2.python.modeling.initializers import (
-        Initializer, pFP16Initializer)
+        Initializer, PseudoFP16Initializer)
 
 
 class InitializerTest(unittest.TestCase):
@@ -52,15 +37,15 @@ class InitializerTest(unittest.TestCase):
         data = model.net.AddExternalInput("data")
         fc1 = brew.fc(model, data, "fc1", dim_in=1, dim_out=1)
 
-        # default operator, pFP16Initializer
+        # default operator, PseudoFP16Initializer
         fc2 = brew.fc(model, fc1, "fc2", dim_in=1, dim_out=1,
-                      WeightInitializer=pFP16Initializer
+                      WeightInitializer=PseudoFP16Initializer
         )
 
-        # specified operator, pFP16Initializer
+        # specified operator, PseudoFP16Initializer
         fc3 = brew.fc(model, fc2, "fc3", dim_in=1, dim_out=1,
                       weight_init=("ConstantFill", {}),
-                      WeightInitializer=pFP16Initializer
+                      WeightInitializer=PseudoFP16Initializer
         )
 
     def test_fc_external_initializer(self):

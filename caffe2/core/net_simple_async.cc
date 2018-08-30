@@ -1,22 +1,7 @@
-/**
- * Copyright (c) 2016-present, Facebook, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 #include "caffe2/core/net_simple_async.h"
 #include "caffe2/core/net.h"
 
+#include <iostream>
 #include <set>
 #include <unordered_map>
 #include <unordered_set>
@@ -72,17 +57,21 @@ AsyncSimpleNet::AsyncSimpleNet(
 bool AsyncSimpleNet::DoRunAsync() {
   StartAllObservers();
 
-  const auto& net_name = name_.c_str();
   VLOG(1) << "Running net " << name_;
   for (auto& op : operators_) {
-    const auto& opdef = op->debug_def();
-    const auto& op_ptr = op.get();
-    const auto& op_name = opdef.name().c_str();
-    const auto& op_type = opdef.type().c_str();
-    VLOG(1) << "Running operator " << op_name << "(" << op_type << ").";
-    CAFFE_SDT(operator_start_async, net_name, op_name, op_type, op_ptr);
+    VLOG(1) << "Running operator " << op->debug_def().name() << "("
+            << op->debug_def().type() << ").";
+#ifdef CAFFE2_ENABLE_SDT
+    const auto& op_name = op->debug_def().name().c_str();
+    const auto& op_type = op->debug_def().type().c_str();
+    auto* op_ptr = op.get();
+    const auto& net_name = name_.c_str();
+    CAFFE_SDT(operator_start, net_name, op_name, op_type, op_ptr);
+#endif
     bool res = op->RunAsync();
+#ifdef CAFFE2_ENABLE_SDT
     CAFFE_SDT(operator_done, net_name, op_name, op_type, op_ptr);
+#endif
     if (!res) {
       LOG(ERROR) << "Operator failed: " << ProtoDebugString(op->debug_def());
       return false;
@@ -96,8 +85,8 @@ vector<float> AsyncSimpleNet::TEST_Benchmark(
     const int warmup_runs,
     const int main_runs,
     const bool run_individual) {
-  LOG(INFO) << "Starting benchmark.";
-  LOG(INFO) << "Running warmup runs.";
+  std::cout << "Starting benchmark." << std::endl;
+  std::cout << "Running warmup runs." << std::endl;
   CAFFE_ENFORCE(
       warmup_runs >= 0,
       "Number of warm up runs should be non negative, provided ",
@@ -107,7 +96,7 @@ vector<float> AsyncSimpleNet::TEST_Benchmark(
     CAFFE_ENFORCE(Run(), "Warmup run ", i, " has failed.");
   }
 
-  LOG(INFO) << "Main runs.";
+  std::cout << "Main runs." << std::endl;
   CAFFE_ENFORCE(
       main_runs >= 0,
       "Number of main runs should be non negative, provided ",
@@ -118,13 +107,13 @@ vector<float> AsyncSimpleNet::TEST_Benchmark(
     CAFFE_ENFORCE(Run(), "Main run ", i, " has failed.");
   }
   auto millis = timer.MilliSeconds();
-  LOG(INFO) << "Main run finished. Milliseconds per iter: "
+  std::cout << "Main run finished. Milliseconds per iter: "
             << millis / main_runs
-            << ". Iters per second: " << 1000.0 * main_runs / millis;
+            << ". Iters per second: " << 1000.0 * main_runs / millis << std::endl;
 
   if (run_individual) {
-    LOG(INFO) << "AsyncSimpleNet does not do per-op benchmark. To do so, "
-                 "switch to a simple net type.";
+    std::cout << "AsyncSimpleNet does not do per-op benchmark. To do so, "
+                 "switch to a simple net type." << std::endl;
   }
   return vector<float>{millis / main_runs};
 }

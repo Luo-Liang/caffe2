@@ -1,24 +1,24 @@
-/**
- * Copyright (c) 2016-present, Facebook, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 #include "caffe2/operators/concat_split_op.h"
 
 namespace caffe2 {
+namespace {
+std::pair<std::vector<DeviceOption>, std::vector<DeviceOption>> splitOpDevInfer(
+    const OperatorDef& def) {
+  auto op_device =
+      def.has_device_option() ? def.device_option() : DeviceOption();
+  vector<DeviceOption> in_dev(def.input_size(), op_device);
+  vector<DeviceOption> out_dev(def.output_size(), op_device);
+
+  // If we obtain split from input tensor, then 2nd input's type is always CPU.
+  if (def.input_size() == SplitOp<CPUContext>::kSplitOpInputSize) {
+    CAFFE_ENFORCE_GT(in_dev.size(), 1);
+    in_dev[1] = DeviceOption();
+  }
+  return std::make_pair(in_dev, out_dev);
+}
+} // namespace.
+
 REGISTER_CPU_OPERATOR(Split, SplitOp<CPUContext>);
-REGISTER_CPU_OPERATOR(Concat, ConcatOp<CPUContext>);
 OPERATOR_SCHEMA(Split)
     .NumInputs(1, 2)
     .NumOutputs(1, INT_MAX)
@@ -27,16 +27,69 @@ OPERATOR_SCHEMA(Split)
     .Arg("axis", "Which axis to split on")
     .Arg("split", "length of each output")
     .Arg("order", "Either NHWC or NCWH, will split on C axis, defaults to NCHW")
-    .SetDoc(R"DOC(Split a tensor into a list of tensors, along the specified
-    'axis'. The lengths of the split can be specified using argument 'axis' or
-    optional second input blob to the operator. Otherwise, the tensor is split
-    to equal sized parts.
-    )DOC");
+    .DeviceInferenceFunction(splitOpDevInfer)
+    .SetDoc(R"DOC(
+Split a tensor into a list of tensors, along the specified
+'axis'. The lengths of the split can be specified using argument 'split' or
+optional second input blob to the operator. Otherwise, the tensor is split
+to equal sized parts.
+)DOC")
+    .InheritOnnxSchema("Split");
+
+namespace {
+OpSchema::Cost CostInferenceForConcat(
+    const OperatorDef& def,
+    const vector<TensorShape>& in) {
+  ArgumentHelper helper(def);
+  const int axis = helper.HasArgument("axis")
+      ? helper.GetSingleArgument<int>("axis", -1)
+      : GetDimFromOrderString(
+            helper.GetSingleArgument<string>("order", "NCHW"));
+  bool add_axis = helper.GetSingleArgument<int>("add_axis", 0) != 0;
+  const int canonical_axis = canonical_axis_index_(axis, in[0].dims_size());
+  CAFFE_ENFORCE_GT(in.size(), 0);
+  vector<int> out_shape(in[0].dims().begin(), in[0].dims().end());
+  if (add_axis) {
+    out_shape.insert(out_shape.begin() + canonical_axis, in.size());
+  } else {
+    for (int i = 1; i < in.size(); ++i) {
+      out_shape[canonical_axis] += in[i].dims(canonical_axis);
+    }
+  }
+  int size = 1;
+  for (auto& s : out_shape) {
+    size *= s;
+  }
+
+  struct OpSchema::Cost cost;
+  cost.flops = 0;
+  cost.bytes_moved = size * sizeof(float);
+  cost.params_bytes = 0;
+  return cost;
+}
+
+std::pair<std::vector<DeviceOption>, std::vector<DeviceOption>>
+concatOpDevInfer(const OperatorDef& def) {
+  auto op_device =
+      def.has_device_option() ? def.device_option() : DeviceOption();
+  vector<DeviceOption> in_dev(def.input_size(), op_device);
+  vector<DeviceOption> out_dev(def.output_size(), op_device);
+
+  // 2nd output's type is always CPU irrespective of op's device option.
+  CAFFE_ENFORCE_GT(out_dev.size(), 1);
+  out_dev[1] = DeviceOption();
+  return std::make_pair(in_dev, out_dev);
+}
+} // namespace
+
+REGISTER_CPU_OPERATOR(Concat, ConcatOp<CPUContext>);
 OPERATOR_SCHEMA(Concat)
     .NumInputs(1, INT_MAX)
     .NumOutputs(2)
     .Arg("axis", "Which axis to concat on")
-    .Arg("order", "Either NHWC or HCWH, will concat on C axis, defaults to NCHW")
+    .Arg(
+        "order",
+        "Either NHWC or NCHW, will concat on C axis, defaults to NCHW")
     .Arg(
         "add_axis",
         "Pass 1 to add the axis specified in arg 'axis' to all "
@@ -49,14 +102,59 @@ OPERATOR_SCHEMA(Concat)
           : GetDimFromOrderString(
                 helper.GetSingleArgument<string>("order", "NCHW"));
       bool add_axis = helper.GetSingleArgument<int>("add_axis", 0) != 0;
+      const int canonical_axis = canonical_axis_index_(axis, in[0].dims_size());
       CAFFE_ENFORCE_GT(in.size(), 0);
       vector<int> split_shape(1, in.size());
       vector<int> out_shape(in[0].dims().begin(), in[0].dims().end());
       if (add_axis) {
-        out_shape.insert(out_shape.begin() + axis, in.size());
+        for (int i = 1; i < in.size(); ++i) {
+          CAFFE_ENFORCE_EQ(
+              in[0].dims().size(),
+              in[i].dims().size(),
+              "All inputs of Concat should have same dims when add_axis = 1. "
+              "Got different sizes for inputs 0 and ",
+              i);
+          for (int j = 0; j < in[0].dims().size(); ++j) {
+            CAFFE_ENFORCE_EQ(
+                in[0].dims(j),
+                in[i].dims(j),
+                "All inputs of Concat should have same dims when add_axis = 1. "
+                "Got different dims for inputs 0 and ",
+                i,
+                ". At dim: ",
+                j);
+          }
+        }
+        out_shape.insert(out_shape.begin() + canonical_axis, in.size());
       } else {
         for (int i = 1; i < in.size(); ++i) {
-          out_shape[axis] += in[i].dims(axis);
+          CAFFE_ENFORCE_EQ(
+              in[0].dims().size(),
+              in[i].dims().size(),
+              "All inputs of Concat should have same dims except "
+              "canonical_axis dim that is equal to ",
+              canonical_axis,
+              "Got different sizes for inputs 0 and ",
+              i);
+          for (int j = 0; j < in[0].dims().size(); ++j) {
+            if (j == canonical_axis) {
+              continue;
+            }
+            CAFFE_ENFORCE_EQ(
+                in[0].dims(j),
+                in[i].dims(j),
+                "All inputs of Concat should have same dims except "
+                "canonical_axis dim that is equal to ",
+                canonical_axis,
+                "Got different dims for inputs 0 and ",
+                i,
+                ". At dim: ",
+                j);
+          }
+        }
+
+        for (int i = 1; i < in.size(); ++i) {
+          out_shape[canonical_axis] += in[i].dims(canonical_axis);
         }
       }
       if (def.output_size() == 1) {
@@ -67,9 +165,12 @@ OPERATOR_SCHEMA(Concat)
           CreateTensorShape(out_shape, in[0].data_type()),
           CreateTensorShape(split_shape, TensorProto::INT32)};
     })
+    .CostInferenceFunction(CostInferenceForConcat)
+    .DeviceInferenceFunction(concatOpDevInfer)
     .SetDoc("Concatenate a list of tensors into a single tensor")
     .Output(0, "concat_result", "Concatenated tensor")
-    .Output(1, "split_info", "The dimensions of the inputs.");
+    .Output(1, "split_info", "The dimensions of the inputs.")
+    .InheritOnnxSchema("Concat");
 
 // Backward compatibility names.
 REGISTER_CPU_OPERATOR(DepthSplit, SplitOp<CPUContext>);
@@ -96,7 +197,9 @@ class GetSplitGradient : public GradientMakerBase {
       return {};
     }
     return SingleGradientDef(
-        "Concat", "", output_grads,
+        "Concat",
+        "",
+        output_grads,
         vector<string>{GI(0), "_" + GI(0) + "_dims"});
   }
 };
@@ -113,10 +216,9 @@ class GetConcatGradient : public GradientMakerBase {
     for (int i = 0; i < def_.input_size(); ++i) {
       grads.push_back(GI(i));
     }
-    return SingleGradientDef(
-        "Split", "", vector<string>{GO(0), O(1)}, grads);
+    return SingleGradientDef("Split", "", vector<string>{GO(0), O(1)}, grads);
   }
 };
 REGISTER_GRADIENT(Concat, GetConcatGradient);
 REGISTER_GRADIENT(DepthConcat, GetConcatGradient);
-}  // namespace caffe2
+} // namespace caffe2

@@ -1,18 +1,3 @@
-# Copyright (c) 2016-present, Facebook, Inc.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-##############################################################################
-
 ## @package tags
 # Module caffe2.python.layers.tags
 from __future__ import absolute_import
@@ -56,14 +41,28 @@ class Tags(object):
     PREFER_GPU = 'prefer_gpu'
     CPU_ONLY = 'cpu_only'
 
-    # The following two tags are hints to **distributed training framework**.
-    # The first tag is to determine a layer contains a sparse parameter and the
-    # parameter should be sharded and operators on those parameters should be
-    # done on distributed parameter servers. The second tag is to determine a
-    # layer contains a sparse parameters among others, and that the parameters
-    # should not be sharded (i.e. should be placed together on a node)
+    # The following three tags are hints to **distributed training framework**.
+    """
+    Indicates a layer contains a sparse shardable parameter.  The parameter
+    should be sharded nd operators on those parameters should be done on
+    distributed parameter servers.
+    """
     SPARSE_SHARDED = 'sparse_sharded'
+    """
+    Indicates a layer contains a sparse parameters among others, and that the
+    parameters should not be sharded (i.e. should be placed together on a node).
+    """
     SPARSE_DONT_SHARD = 'sparse_dont_shard'
+    """
+    Used to manually indicate a component for an operator.  Parameters for
+    all operators with the same component should be colocated on the same
+    parameter server.
+    """
+    COMPONENT = 'component:'
+    """
+    Valid tag prefixes for distributed training framework.
+    """
+    DT_TAGS = (SPARSE_SHARDED, SPARSE_DONT_SHARD, COMPONENT)
 
     # In certain cases we want to have different schema for training and
     # prediction, as an example in prediction we might need to have only

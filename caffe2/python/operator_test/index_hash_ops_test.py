@@ -1,23 +1,8 @@
-# Copyright (c) 2016-present, Facebook, Inc.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-##############################################################################
-
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
-from caffe2.python import core
+from caffe2.python import core, workspace
 from hypothesis import given
 import caffe2.python.hypothesis_test_util as hu
 import hypothesis.strategies as st
@@ -53,3 +38,26 @@ class TestIndexHashOps(hu.HypothesisTestCase):
 
         self.assertDeviceChecks(dc, op, [indices], [0])
         self.assertReferenceChecks(gc, op, [indices], index_hash)
+
+    def test_shape_and_type_inference(self):
+        with hu.temp_workspace("shape_type_inf_int64"):
+            net = core.Net('test_net')
+            net.ConstantFill(
+                [], "values", shape=[64], dtype=core.DataType.INT64,
+            )
+            net.IndexHash(['values'], ['values_output'])
+            (shapes, types) = workspace.InferShapesAndTypes([net], {})
+
+            self.assertEqual(shapes["values_output"], [64])
+            self.assertEqual(types["values_output"], core.DataType.INT64)
+
+        with hu.temp_workspace("shape_type_inf_int32"):
+            net = core.Net('test_net')
+            net.ConstantFill(
+                [], "values", shape=[2, 32], dtype=core.DataType.INT32,
+            )
+            net.IndexHash(['values'], ['values_output'])
+            (shapes, types) = workspace.InferShapesAndTypes([net], {})
+
+            self.assertEqual(shapes["values_output"], [2, 32])
+            self.assertEqual(types["values_output"], core.DataType.INT32)

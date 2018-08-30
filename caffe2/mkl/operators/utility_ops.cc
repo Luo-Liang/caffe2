@@ -1,19 +1,3 @@
-/**
- * Copyright (c) 2016-present, Facebook, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 #include "caffe2/operators/utility_ops.h"
 #include "caffe2/core/operator.h"
 #include "caffe2/mkl/mkl_utils.h"
@@ -53,6 +37,17 @@ class CopyMKLToCPUOp final : public MKLOperator<float> {
 
 REGISTER_MKL_OPERATOR(CopyCPUToMKL, mkl::CopyCPUToMKLOp);
 REGISTER_MKL_OPERATOR(CopyMKLToCPU, mkl::CopyMKLToCPUOp);
+
+OPERATOR_SCHEMA(CopyCPUToMKL)
+    .NumInputs(1)
+    .NumOutputs(1)
+    .Input(0, "cpu_blob", "The input TensorCPU to copy")
+    .Output(0, "mkl_blob", "The output MKLMemory to copy to");
+OPERATOR_SCHEMA(CopyMKLToCPU)
+    .NumInputs(1)
+    .NumOutputs(1)
+    .Input(0, "mkl_blob", "The input MKLMemory to copy")
+    .Output(0, "cpu_blob", "The output TensorCPU to copy to");
 
 } // namespace caffe2
 

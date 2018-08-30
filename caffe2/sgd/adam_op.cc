@@ -1,19 +1,3 @@
-/**
- * Copyright (c) 2016-present, Facebook, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 #include "adam_op.h"
 
 namespace caffe2 {
@@ -81,7 +65,40 @@ Adam on (param, moment1[indices], momemnt2[indices], lr, iter) and returns
     .Arg("beta2", "Default 0.999")
     .Arg("epsilon", "Default 1e-5");
 
+REGISTER_CPU_OPERATOR(
+    RowWiseSparseAdam,
+    RowWiseSparseAdamOp<float, CPUContext>);
+OPERATOR_SCHEMA(RowWiseSparseAdam)
+    .NumInputs(7)
+    .NumOutputs(3)
+    .EnforceInplace({{0, 0}, {1, 1}, {2, 2}})
+    .SetDoc(R"DOC(
+
+Computes a modified Adam Update for the sparse case.
+Given inputs (param, moment1, moment2, indices, grad, lr, iter), runs the
+Adam update on (param, moment1[indices], moment2[indices], lr, iter) and returns
+(new_param, new_moment1, new_moment2), where moment2 is a 1D tensor
+with length equal to the number of rows in param:
+shape(moment2) == shape(param)[0]. Each element of  moment2 is
+applied to an entire row of param, and the new moment2 values are
+calculated by averaging across the row.
+
+)DOC")
+    .Input(0, "param", "Parameters to be updated")
+    .Input(1, "moment_1", "First moment history")
+    .Input(2, "moment_2", "Second moment history")
+    .Input(3, "indices", "Sparse indices")
+    .Input(4, "grad", "Gradient computed")
+    .Input(5, "lr", "learning rate")
+    .Input(6, "iter", "iteration number")
+    .Output(0, "output_param", "Updated parameters")
+    .Output(1, "output_moment_1", "Updated first moment")
+    .Output(2, "output_moment_2", "Updated second moment")
+    .Arg("beta1", "Default 0.9")
+    .Arg("beta2", "Default 0.999")
+    .Arg("epsilon", "Default 1e-5");
+
 SHOULD_NOT_DO_GRADIENT(Adam);
 SHOULD_NOT_DO_GRADIENT(SparseAdam);
-
+SHOULD_NOT_DO_GRADIENT(RowWiseSparseAdam);
 }

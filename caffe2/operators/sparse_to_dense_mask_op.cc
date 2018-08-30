@@ -1,19 +1,3 @@
-/**
- * Copyright (c) 2016-present, Facebook, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 #include "caffe2/operators/sparse_to_dense_mask_op.h"
 
 namespace caffe2 {
@@ -63,10 +47,8 @@ vector and `values` tensor into a compacted tensor where the first dimension
 corresponds to each id provided in mask argument. Missing values are filled with
 the value of `default_value`. After running this op:
 
-```
-output[j, :] = values[i] # where mask[j] == indices[i]
-output[j, ...] = default_value # when mask[j] doesn't appear in indices
-```
+  output[j, :] = values[i] # where mask[j] == indices[i]
+  output[j, ...] = default_value # when mask[j] doesn't appear in indices
 
 If `lengths` is provided and not empty, and extra "batch" dimension is prepended
 to the output.

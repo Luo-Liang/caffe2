@@ -1,19 +1,3 @@
-/**
- * Copyright (c) 2016-present, Facebook, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 #ifndef CAFFE2_CORE_OPERATOR_H_
 #define CAFFE2_CORE_OPERATOR_H_
 
@@ -21,6 +5,7 @@
 #include <climits>
 #include <cstddef>
 #include <exception>
+#include <set>
 #include <typeinfo>
 #include <vector>
 
@@ -32,6 +17,7 @@
 #include "caffe2/core/operator_schema.h"
 #include "caffe2/core/registry.h"
 #include "caffe2/core/tensor.h"
+#include "caffe2/core/types.h"
 #include "caffe2/core/workspace.h"
 #include "caffe2/proto/caffe2.pb.h"
 #include "caffe2/utils/proto_utils.h"
@@ -97,6 +83,12 @@ class OperatorBase : public Observable<OperatorBase> {
     return outputs_.at(idx)->template GetMutable<T>();
   }
 
+  template <typename T>
+  inline T* Output(int idx, T* allocated) {
+    outputs_.at(idx)->Reset(allocated);
+    return allocated;
+  }
+
   inline const Blob& InputBlob(int idx) {
     return *inputs_.at(idx);
   }
@@ -115,8 +107,12 @@ class OperatorBase : public Observable<OperatorBase> {
     return outputs_.at(idx)->template IsType<T>();
   }
 
-  inline int InputSize() { return inputs_.size(); }
-  inline int OutputSize() { return outputs_.size(); }
+  inline int InputSize() const {
+    return inputs_.size();
+  }
+  inline int OutputSize() const {
+    return outputs_.size();
+  }
   inline const vector<const Blob*>& Inputs() const { return inputs_; }
   inline const vector<Blob*>& Outputs() { return outputs_; }
   vector<TensorShape> InputTensorShapes();
@@ -138,7 +134,9 @@ class OperatorBase : public Observable<OperatorBase> {
   }
 
   virtual void Finish() {
-    event_.Finish();
+    if (event_) {
+      event_->Finish();
+    }
   }
 
   virtual bool Run(int /* unused */ /*stream_id*/ = 0) {
@@ -221,23 +219,42 @@ class OperatorBase : public Observable<OperatorBase> {
     net_position_ = idx;
   }
 
-  const DeviceOption& device_option() {
+  const DeviceOption& device_option() const {
     return device_option_;
   }
 
   const Event& event() const {
-    return event_;
+    CAFFE_ENFORCE(event_, "Event is disabled");
+    return *event_;
   }
 
   Event& event() {
-    return event_;
+    CAFFE_ENFORCE(event_, "Event is disabled");
+    return *event_;
   }
 
   void ResetEvent() {
-    event_.Reset();
+    if (event_) {
+      event_->Reset();
+    }
   }
 
-  const std::string& type() {
+  void DisableEvent() {
+    event_ = nullptr;
+  }
+
+  bool IsEventDisabled() const {
+    return !event_;
+  }
+
+  // Checks whether stream is ready to execute new computation,
+  // used in stream allocation optimization to skip stream that is currently
+  // busy. Depends on context and operator's device, returns true by default
+  virtual bool IsStreamFree(int /* unused */) const {
+    return true;
+  }
+
+  const std::string& type() const {
     CAFFE_ENFORCE(operator_def_.get() != nullptr);
     return operator_def_->type();
   }
@@ -269,7 +286,7 @@ class OperatorBase : public Observable<OperatorBase> {
   }
 
   // An event used by asynchronous execution.
-  Event event_;
+  std::unique_ptr<Event> event_;
 
   DISABLE_COPY_AND_ASSIGN(OperatorBase);
 };
@@ -385,7 +402,7 @@ class Operator : public OperatorBase {
           event().SetFinished();
         }
       } else {
-        RecordEvent(getErrorMsg().c_str());
+        event().SetFinished(getErrorMsg().c_str());
         this->RecordLastFailedOpNetPosition();
       }
       return result;
@@ -395,14 +412,22 @@ class Operator : public OperatorBase {
             "Error from operator: \n" + ProtoDebugString(debug_def()));
         AddRelatedBlobInfo(&err);
       }
-      RecordEvent(err.what());
+      event().SetFinished(err.what());
+      this->RecordLastFailedOpNetPosition();
+      throw;
+    } catch (const std::exception& err) {
+      event().SetFinished(err.what());
       this->RecordLastFailedOpNetPosition();
       throw;
     } catch (...) {
-      RecordEvent(getErrorMsg().c_str());
+      event().SetFinished(getErrorMsg().c_str());
       this->RecordLastFailedOpNetPosition();
       throw;
     }
+  }
+
+  bool IsStreamFree(int stream_id) const override {
+    return context_.IsStreamFree(device_option(), stream_id);
   }
 
   virtual bool RunOnDevice() = 0;
@@ -435,9 +460,15 @@ class Operator : public OperatorBase {
     return HasAsyncPart() && context_.SupportsAsyncScheduling();
   }
 
+  const Context* getContext() const {
+    return &context_;
+  }
+
  protected:
   void RecordEvent(const char* err_msg = nullptr) final {
-    context_.Record(&event_, err_msg);
+    if (event_) {
+      context_.Record(event_.get(), err_msg);
+    }
   }
 
   std::string getErrorMsg() {
@@ -460,11 +491,13 @@ class Operator : public OperatorBase {
   /* using override */ using OperatorBase::InputSize;               \
   /* using override */ using OperatorBase::OutputSize
 
-#define USE_OPERATOR_FUNCTIONS(context)                   \
-  USE_OPERATOR_BASE_FUNCTIONS;                            \
-  /* using override */ using Operator<context>::context_; \
-  /* using override */ using Operator<context>::Input;    \
-  /* using override */ using Operator<context>::Output
+#define USE_OPERATOR_FUNCTIONS(context)                    \
+  USE_OPERATOR_BASE_FUNCTIONS;                             \
+  /* using override */ using Operator<context>::context_;  \
+  /* using override */ using Operator<context>::Input;     \
+  /* using override */ using Operator<context>::InputBlob; \
+  /* using override */ using Operator<context>::Output;    \
+  /* using override */ using Operator<context>::OutputBlob
 
 #define USE_OPERATOR_CONTEXT_FUNCTIONS USE_OPERATOR_FUNCTIONS(Context)
 
@@ -792,6 +825,9 @@ TensorShapes InferBlobShapesAndTypesFromMap(
 std::map<string, std::pair<DeviceOption, DeviceOption>> ValidateTensorDevices(
     OperatorBase& op,
     const OperatorDef& op_def);
+
+// Get a set of registered operator names
+std::set<std::string> GetRegisteredOperators();
 
 }  // namespace caffe2
 
