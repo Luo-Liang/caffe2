@@ -1,19 +1,3 @@
-/**
- * Copyright (c) 2016-present, Facebook, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 #include <iostream>
 #include <memory>
 #include <mutex>
@@ -41,12 +25,51 @@ CAFFE2_DECLARE_bool(caffe2_serialize_fp16_as_bytes);
 namespace caffe2 {
 using namespace ::caffe2::db;
 namespace {
-class BlobTestFoo {};
+class BlobTestFoo {
+ public:
+  int32_t val;
+};
 class BlobTestBar {};
 }
 
 CAFFE_KNOWN_TYPE(BlobTestFoo);
 CAFFE_KNOWN_TYPE(BlobTestBar);
+
+class BlobTestFooSerializer : public BlobSerializerBase {
+ public:
+  BlobTestFooSerializer() {}
+  ~BlobTestFooSerializer() {}
+  /**
+   * Serializes a Blob. Note that this blob has to contain Tensor<Context>,
+   * otherwise this function produces a fatal error.
+   */
+  void Serialize(
+      const Blob& blob,
+      const string& name,
+      SerializationAcceptor acceptor) override {
+    CAFFE_ENFORCE(blob.IsType<BlobTestFoo>());
+
+    BlobProto blob_proto;
+    blob_proto.set_name(name);
+    blob_proto.set_type("BlobTestFoo");
+    // For simplicity we will just serialize the 4-byte content as a string.
+    blob_proto.set_content(std::string(
+        reinterpret_cast<const char*>(&(blob.Get<BlobTestFoo>().val)),
+        sizeof(int32_t)));
+    acceptor(name, blob_proto.SerializeAsString());
+  }
+};
+
+class BlobTestFooDeserializer : public BlobDeserializerBase {
+ public:
+  void Deserialize(const BlobProto& proto, Blob* blob) override {
+    blob->GetMutable<BlobTestFoo>()->val =
+        reinterpret_cast<const int32_t*>(proto.content().c_str())[0];
+  }
+};
+
+REGISTER_BLOB_SERIALIZER((TypeMeta::Id<BlobTestFoo>()), BlobTestFooSerializer);
+REGISTER_BLOB_DESERIALIZER(BlobTestFoo, BlobTestFooDeserializer);
 
 namespace {
 
@@ -499,7 +522,20 @@ TEST(TensorTest, Tensor64BitDimension) {
   EXPECT_EQ(tensor.ndim(), 1);
   EXPECT_EQ(tensor.dim(0), large_number);
   EXPECT_EQ(tensor.size(), large_number);
-  EXPECT_TRUE(tensor.mutable_data<char>() != nullptr);
+  try {
+    EXPECT_TRUE(tensor.mutable_data<char>() != nullptr);
+  } catch (const EnforceNotMet& e) {
+    string msg = e.what();
+    size_t found = msg.find("posix_memalign");
+    if (found != string::npos) {
+      msg = msg.substr(0, msg.find('\n'));
+      LOG(WARNING) << msg;
+      LOG(WARNING) << "Out of memory issue with posix_memalign;\n";
+      return;
+    } else {
+      throw e;
+    }
+  }
   EXPECT_EQ(tensor.nbytes(), large_number * sizeof(char));
   EXPECT_EQ(tensor.itemsize(), sizeof(char));
   // Try to go even larger, but this time we will not do mutable_data because we
@@ -589,6 +625,32 @@ TEST_SERIALIZATION_WITH_TYPE(int16_t, int32_data)
 TEST_SERIALIZATION_WITH_TYPE(uint8_t, int32_data)
 TEST_SERIALIZATION_WITH_TYPE(uint16_t, int32_data)
 TEST_SERIALIZATION_WITH_TYPE(int64_t, int64_data)
+
+TEST(TensorTest, TensorSerialization_CustomType) {
+  Blob blob;
+  TensorCPU* tensor = blob.GetMutable<TensorCPU>();
+  tensor->Resize(2, 3);
+  for (int i = 0; i < 6; ++i) {
+    tensor->mutable_data<BlobTestFoo>()[i].val = i;
+  }
+  string serialized = blob.Serialize("test");
+  BlobProto proto;
+  CHECK(proto.ParseFromString(serialized));
+  EXPECT_EQ(proto.name(), "test");
+  EXPECT_EQ(proto.type(), "Tensor");
+  Blob new_blob;
+  EXPECT_NO_THROW(new_blob.Deserialize(serialized));
+  EXPECT_TRUE(new_blob.IsType<TensorCPU>());
+  const TensorCPU& new_tensor = blob.Get<TensorCPU>();
+  EXPECT_EQ(new_tensor.ndim(), 2);
+  EXPECT_EQ(new_tensor.dim(0), 2);
+  EXPECT_EQ(new_tensor.dim(1), 3);
+  for (int i = 0; i < 6; ++i) {
+    EXPECT_EQ(
+        new_tensor.data<BlobTestFoo>()[i].val,
+        tensor->data<BlobTestFoo>()[i].val);
+  }
+}
 
 TEST(TensorTest, float16) {
   const TIndex kSize = 3000000;
@@ -811,6 +873,7 @@ TYPED_TEST(TypedTensorTest, BigTensorSerialization) {
     }
   }
 }
+
 struct DummyType {
   /* This struct is used to test serialization and deserialization of huge
    * blobs, that are not tensors.
@@ -958,5 +1021,22 @@ TEST(QTensor, QTensorSizingTest) {
   EXPECT_EQ(qtensor.nbytes(), 12);
   EXPECT_EQ(qtensor.size(), 30);
 }
+
+TEST(BlobTest, CastingMessage) {
+  Blob b;
+  b.GetMutable<BlobTestFoo>();
+  b.Get<BlobTestFoo>();
+  try {
+    b.Get<BlobTestBar>();
+    FAIL() << "Should have thrown";
+  } catch (const EnforceNotMet& e) {
+    string msg = e.what();
+    msg = msg.substr(0, msg.find('\n'));
+    LOG(INFO) << msg;
+    EXPECT_NE(msg.find("BlobTestFoo"), std::string::npos) << msg;
+    EXPECT_NE(msg.find("BlobTestBar"), std::string::npos) << msg;
+  }
+}
+
 } // namespace
 } // namespace caffe2

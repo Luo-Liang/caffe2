@@ -1,19 +1,3 @@
-/**
- * Copyright (c) 2016-present, Facebook, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 #include "caffe2/core/operator.h"
 
 #include <algorithm>
@@ -22,6 +6,7 @@
 #include "caffe2/core/net.h"
 #include "caffe2/core/operator_gradient.h"
 #include "caffe2/core/tensor.h"
+#include "caffe2/core/types.h"
 #include "caffe2/core/workspace.h"
 
 #include "caffe2/proto/caffe2.pb.h"
@@ -32,6 +17,11 @@ CAFFE2_DEFINE_int(
     caffe2_operator_max_engine_name_length,
     10,
     "Maximum engine name length to be stored");
+CAFFE2_DEFINE_bool(
+    caffe2_disable_implicit_engine_preference,
+    false,
+    "If set, disable implicit engine preferences. This is useful for unit "
+    "testing and debugging cases.");
 
 namespace caffe2 {
 
@@ -41,7 +31,7 @@ OperatorBase::OperatorBase(const OperatorDef& operator_def, Workspace* ws)
       device_option_(
           operator_def.has_device_option() ? operator_def.device_option()
                                            : DeviceOption()),
-      event_(device_option_) {
+      event_(caffe2::make_unique<Event>(device_option_)) {
   for (const string& input_str : operator_def.input()) {
     auto* blob = ws->GetBlob(input_str);
     CAFFE_ENFORCE(
@@ -83,7 +73,7 @@ GlobalEnginePrefType& g_global_engine_pref() {
 
 unique_ptr<OperatorBase> TryCreateOperator(
     const string& key, const OperatorDef& operator_def, Workspace* ws) {
-  auto type = operator_def.device_option().device_type();
+  const auto& type = operator_def.device_option().device_type();
   CAFFE_ENFORCE(
       gDeviceTypeRegistry()->count(type),
       "Device type ",
@@ -106,8 +96,8 @@ unique_ptr<OperatorBase> _CreateOperator(
     const OperatorDef& operator_def,
     Workspace* ws) {
   static StaticLinkingProtector g_protector;
-  const auto op_type = operator_def.type();
-  const auto device_type = operator_def.device_option().device_type();
+  const auto& op_type = operator_def.type();
+  const auto& device_type = operator_def.device_option().device_type();
 
 #ifndef CAFFE2_NO_OPERATOR_SCHEMA
   // first, check with OpSchema if the operator is legal.
@@ -132,15 +122,19 @@ unique_ptr<OperatorBase> _CreateOperator(
     const auto op_def_engines = split(',', operator_def.engine());
     engines.insert(engines.end(), op_def_engines.begin(), op_def_engines.end());
   }
-  if (g_per_op_engine_pref().count(device_type) &&
+  if (!FLAGS_caffe2_disable_implicit_engine_preference &&
+      g_per_op_engine_pref().count(device_type) &&
       g_per_op_engine_pref()[device_type].count(op_type)) {
     const auto& preferred_engines =
         g_per_op_engine_pref()[device_type][op_type];
+    VLOG(2) << "Inserting per-op engine preference: " << preferred_engines;
     engines.insert(
         engines.end(), preferred_engines.begin(), preferred_engines.end());
   }
-  if (g_global_engine_pref().count(device_type)) {
+  if (!FLAGS_caffe2_disable_implicit_engine_preference &&
+      g_global_engine_pref().count(device_type)) {
     const auto& preferred_engines = g_global_engine_pref()[device_type];
+    VLOG(2) << "Inserting global engine preference: " << preferred_engines;
     engines.insert(
         engines.end(), preferred_engines.begin(), preferred_engines.end());
   }
@@ -160,7 +154,16 @@ unique_ptr<OperatorBase> _CreateOperator(
     } else {
       // If the above fails, we will just return the normal case with the
       // default implementation.
-      VLOG(1) << "Operator with engine " << engine << " is not available.";
+      VLOG(1) << "Engine " << engine
+              << " is not available for operator " << op_type << ".";
+    }
+  }
+  if (operator_def.engine().size() && !VLOG_IS_ON(1)) {
+    static int log_occurrences = 0;
+    if (log_occurrences <= 64) {
+      ++log_occurrences;
+      LOG(INFO) << "Engine " << operator_def.engine()
+                << " is not available for operator " << op_type << ".";
     }
   }
   VLOG(1) << "Using default implementation.";
@@ -600,6 +603,21 @@ std::map<string, std::pair<DeviceOption, DeviceOption>> ValidateTensorDevices(
     Check(*op.OutputBlob(i), op_def.output(i));
   }
   return mismatches;
+}
+
+std::set<std::string> GetRegisteredOperators() {
+  std::set<std::string> all_keys;
+
+  // CPU operators
+  for (const auto& name : CPUOperatorRegistry()->Keys()) {
+    all_keys.emplace(name);
+  }
+  // CUDA operators
+  for (const auto& name : CUDAOperatorRegistry()->Keys()) {
+    all_keys.emplace(name);
+  }
+
+  return all_keys;
 }
 
 }  // namespace caffe2

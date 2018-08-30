@@ -1,19 +1,3 @@
-/**
- * Copyright (c) 2016-present, Facebook, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 #include <algorithm>
 #include <atomic>
 #include <cstdlib>
@@ -254,17 +238,27 @@ struct Caffe2CudaInitializerHelper {
 };
 }  // namespace
 
+/**
+ * A utility function to rectify the gpu id. If the context specifies the
+ * gpu id to be -1, it means that we will just use the current gpu id when
+ * the function is being called.
+ */
+static inline int RectifyGPUID(const int gpu_id) {
+  return gpu_id == -1 ? CaffeCudaGetDevice() : gpu_id;
+}
+
 CUDAContext::CUDAContext(const int gpu_id)
-    : gpu_id_(gpu_id == -1 ? GetDefaultGPUID() : gpu_id)
-    , random_seed_(math::randomNumberSeed()) {
+    : gpu_id_(RectifyGPUID(gpu_id)), random_seed_(RandomNumberSeed()) {
   static Caffe2CudaInitializerHelper g_cuda_initializer_;
 }
 
 CUDAContext::CUDAContext(const DeviceOption& option)
-    : gpu_id_(option.has_cuda_gpu_id() ?
-              option.cuda_gpu_id() : GetDefaultGPUID()),
-      random_seed_(option.has_random_seed() ?
-                   option.random_seed() : math::randomNumberSeed()) {
+    : gpu_id_(
+          option.has_cuda_gpu_id() ? RectifyGPUID(option.cuda_gpu_id())
+                                   : CaffeCudaGetDevice()),
+      random_seed_(
+          option.has_random_seed() ? option.random_seed()
+                                   : RandomNumberSeed()) {
   static Caffe2CudaInitializerHelper g_cuda_initializer_;
   DCHECK_EQ(option.device_type(), CUDA);
 }

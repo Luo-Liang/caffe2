@@ -1,18 +1,3 @@
-# Copyright (c) 2016-present, Facebook, Inc.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-##############################################################################
-
 # @package parallel_workers
 # Module caffe2.python.parallel_workers
 from __future__ import absolute_import
@@ -154,7 +139,8 @@ class WorkerCoordinator(object):
 
     def init(self, global_coordinator):
         if self._init_fun and not self._started:
-            self._init_fun(self, global_coordinator)
+            data_coordinator = self
+            self._init_fun(data_coordinator, global_coordinator)
 
     def _start(self):
         if self._started:
@@ -218,8 +204,11 @@ class GlobalWorkerCoordinator(object):
         return self._worker_ids
 
     def start(self):
+        # run init and start in separate for loop to
+        # ensure init happens serially before threads are spawn.
         for c in self._coordinators:
             c.init(self)
+        for c in self._coordinators:
             c._start()
 
     def stop(self):

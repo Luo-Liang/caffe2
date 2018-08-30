@@ -1,19 +1,3 @@
-/**
- * Copyright (c) 2016-present, Facebook, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 #ifndef CAFFE2_CORE_TYPES_H_
 #define CAFFE2_CORE_TYPES_H_
 
@@ -70,7 +54,15 @@ typedef struct CAFFE2_ALIGNED(2) __f16 { uint16_t x; } float16;
 
 // Helpers to avoid using typeinfo with -rtti
 template <typename T>
-bool fp16_type() {
+inline bool fp16_type();
+// explicit instantation for float16 defined in types.cc.
+template <>
+inline bool fp16_type<float16>() {
+  return true;
+}
+// The rest.
+template <typename T>
+inline bool fp16_type() {
   return false;
 }
 

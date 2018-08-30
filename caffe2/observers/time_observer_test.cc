@@ -1,26 +1,9 @@
-/**
- * Copyright (c) 2016-present, Facebook, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 #include "caffe2/core/common.h"
 #include "caffe2/core/net.h"
 #include "caffe2/core/observer.h"
 #include "caffe2/core/operator.h"
 #include "time_observer.h"
 
-#include <google/protobuf/text_format.h>
 #include <gtest/gtest.h>
 #include <chrono>
 #include <thread>
@@ -67,17 +50,16 @@ unique_ptr<NetBase> CreateNetTestHelper(Workspace* ws) {
 
   return CreateNet(net_def, ws);
 }
-}
+} // namespace
 
 TEST(TimeObserverTest, Test3Seconds) {
   Workspace ws;
   ws.CreateBlob("in");
   NetDef net_def;
   unique_ptr<NetBase> net(CreateNetTestHelper(&ws));
-  unique_ptr<TimeObserver<NetBase>> net_ob =
-      make_unique<TimeObserver<NetBase>>(net.get());
-  const auto* ob = dynamic_cast_if_rtti<const TimeObserver<NetBase>*>(
-      net->AttachObserver(std::move(net_ob)));
+  auto net_ob = caffe2::make_unique<TimeObserver>(net.get());
+  const auto* ob = net_ob.get();
+  net->AttachObserver(std::move(net_ob));
   net->Run();
   CAFFE_ENFORCE(ob);
   LOG(INFO) << "av time children: " << ob->average_time_children();
@@ -87,4 +69,4 @@ TEST(TimeObserverTest, Test3Seconds) {
   CAFFE_ENFORCE(ob->average_time() > 6000);
   CAFFE_ENFORCE(ob->average_time() < 6500);
 }
-}
+} // namespace caffe2

@@ -1,19 +1,3 @@
-/**
- * Copyright (c) 2016-present, Facebook, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 #ifndef CAFFE2_OPERATORS_RESHAPE_OP_H_
 #define CAFFE2_OPERATORS_RESHAPE_OP_H_
 
@@ -21,6 +5,7 @@
 #include "caffe2/core/context.h"
 #include "caffe2/core/logging.h"
 #include "caffe2/core/operator.h"
+#include "caffe2/utils/math.h"
 
 namespace caffe2 {
 
@@ -44,8 +29,15 @@ class ReshapeOp : public Operator<Context> {
 
   template <typename T>
   bool DoRunWithType() {
-    auto& input = Input(0);
+    DoRunWithTypeImpl<T>(Input(0), Output(0));
+    return true;
+  }
 
+ protected:
+  template <typename T>
+  void DoRunWithTypeImpl(
+      const Tensor<Context>& input,
+      Tensor<Context>* output) {
     vector<int64_t> actual_new_shape = new_shape_;
     if (InputSize() == 2) {
       CAFFE_ENFORCE(
@@ -120,7 +112,6 @@ class ReshapeOp : public Operator<Context> {
       math::Set<T, Context>(1, input.dim(i), old_shape_data + i, &context_);
     }
 
-    auto* output = Output(0);
     output->Resize(actual_new_shape);
     if (output != &input) {
       // If we are not doing in-place computation, a copy is needed.
@@ -130,8 +121,6 @@ class ReshapeOp : public Operator<Context> {
           input.raw_data(),
           output->raw_mutable_data(input.meta()));
     }
-
-    return true;
   }
 
  private:

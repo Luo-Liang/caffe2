@@ -1,19 +1,3 @@
-/**
- * Copyright (c) 2016-present, Facebook, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 #ifndef CAFFE2_OPERATORS_SEGMENT_REDUCTION_OP_H_
 #define CAFFE2_OPERATORS_SEGMENT_REDUCTION_OP_H_
 
@@ -1488,21 +1472,23 @@ class AbstractLengthsOp : public Operator<Context> {
           idx = indices[dataIndex];
           CAFFE_ENFORCE(
               0 <= idx && idx < dataSize,
-              "Index ",
+              "The ",
               dataIndex,
-              " is out of bounds: ",
+              "th index from the input indices is out of bounds: ",
               idx,
-              ", range 0 to ",
+              " vs. valid range 0 to ",
               dataSize);
         } else {
           idx = dataIndex;
           CAFFE_ENFORCE(
-              idx < dataSize,
-              "Range ",
+              0 <= idx && idx < dataSize,
+              "When calculating the ",
               rangeIndex,
-              " of length ",
+              "th output with length=",
               lengths[rangeIndex],
-              " is out of bound ",
+              ", the index is out of bounds: ",
+              idx,
+              " vs. valid range 0 to ",
               dataSize);
         }
 
@@ -1615,7 +1601,7 @@ class AbstractLengthsGradientOp : public Operator<Context> {
   }
 
   // Input layout:
-  //   orig_arg1, orig_arg2, ..., orig_argN, SEGMENT_GRADS, SEGMENT_IDS
+  //   orig_arg1, orig_arg2, ..., orig_argN, SEGMENT_GRADS, LENGTHS, INDICES
   // orig_argXs represent original op's inputs and will be passed to the reducer
   // directly
   static constexpr int kNumInputs = ReducerGradient::originalInputs().size() +
@@ -1731,8 +1717,8 @@ class AbstractLengthsWithMainInputGradientOp : public Operator<Context> {
   }
 
   // Input layout:
-  //   orig_arg1, orig_arg2, ..., orig_argN, DATA_INPUT, SEGMENT_GRADS,
-  //      SEGMENT_LEGNTHS, [INDICES]
+  //   orig_arg1, orig_arg2, ..., orig_argN, SEGMENT_GRADS, LENGTHS,
+  //      DATA_INPUT, [INDICES]
   // orig_argXs represent original op's inputs and will be passed to the reducer
   // directly
   static constexpr int kNumInputs = ReducerGradient::originalInputs().size() +
@@ -1824,8 +1810,8 @@ class AbstractLengthsWithMainInputAndForwardOutputGradientOp
   }
 
   // Input layout:
-  //   orig_arg1, orig_arg2, ..., orig_argN, FORWARD_OUTPUT, DATA_INPUT,
-  //      SEGMENT_GRADS, SEGMENT_LEGNTHS
+  //   orig_arg1, orig_arg2, ..., orig_argN, FORWARD_OUTPUT, SEGMENT_GRADS,
+  //      LENGTHS, DATA_INPUT
   // orig_argXs represent original op's inputs and will be passed to the reducer
   // directly
   static constexpr int kNumInputs =

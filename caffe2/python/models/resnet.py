@@ -1,18 +1,3 @@
-# Copyright (c) 2016-present, Facebook, Inc.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-##############################################################################
-
 ## @package resnet
 # Module caffe2.python.models.resnet
 
@@ -292,6 +277,7 @@ def create_resnet50(
         'final_avg',
         kernel=final_avg_kernel,
         stride=1,
+        global_pooling=True,
     )
 
     # Final dimension of the "image" is reduced to 7x7
@@ -523,7 +509,7 @@ def create_resnet_32x32(
     # Number of blocks as described in sec 4.2
     filters = [16, 32, 64]
 
-    builder = ResNetBuilder(model, 'relu1', is_test=is_test)
+    builder = ResNetBuilder(model, 'relu1', no_bias=0, is_test=is_test)
     prev_filters = 16
     for groupidx in range(0, 3):
         for blockidx in range(0, 2 * num_groups):

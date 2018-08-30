@@ -1,19 +1,3 @@
-/**
- * Copyright (c) 2016-present, Facebook, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 #include "caffe2/operators/softmax_op.h"
 #include "caffe2/operators/softmax_shared.h"
 
@@ -123,7 +107,8 @@ will throw errors.
          "The input tensor that's coerced into a 2D matrix of size (NxD) "
          "as described above.")
   .Output(0, "output", "The softmax normalized output values with the same "
-          "shape as input tensor.");
+          "shape as input tensor.")
+  .InheritOnnxSchema("Softmax");
 
 // Input: Y, dY. Output: dX
 OPERATOR_SCHEMA(SoftmaxGradient).NumInputs(2).NumOutputs(1);

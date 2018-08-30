@@ -1,18 +1,3 @@
-# Copyright (c) 2016-present, Facebook, Inc.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-##############################################################################
-
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -106,6 +91,7 @@ class TestShapeInference(test_util.TestCase):
         model = model_helper.ModelHelper(name="test_model")
         model.net.ReduceBackSum(["x"], ["x_back_sum"])
         model.net.ReduceBackMean(["x"], ["x_back_mean"])
+        model.net.ReduceBackMax(["x"], ["x_back_max"])
         model.net.ReduceFrontSum(["x"], ["x_front_sum"])
         model.net.ReduceFrontMean(["x"], ["x_front_mean"])
         model.net.ReduceFrontMax(["x"], ["x_front_max"])
@@ -480,6 +466,12 @@ class TestShapeInference(test_util.TestCase):
                 "R",
                 np.random.rand(2, 5).astype(np.float32))
             self.InferTensorRunAndCompare(model)
+
+    def testShapeInferencePow(self):
+        model = model_helper.ModelHelper(name="powtest")
+        model.Pow("x", 'y', exponent=-1.0)
+        workspace.FeedBlob('x', np.random.rand(1, 2, 3, 4).astype(np.float32))
+        self.InferTensorRunAndCompare(model)
 
     def InferTensorRunAndCompare(self, model, expected_uninferred_blobs=None):
         '''

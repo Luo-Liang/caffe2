@@ -1,19 +1,3 @@
-/**
- * Copyright (c) 2016-present, Facebook, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 #include "caffe2/operators/one_hot_ops.h"
 
 #include "caffe2/core/operator.h"
@@ -34,10 +18,14 @@ bool BatchOneHotOp<CPUContext>::DoRunWithType() {
 
   const auto* lens_data = lens.template data<int32_t>();
   TIndex output_dim = 0;
+  valsOffsets_.resize(D + 1);
   for (TIndex i = 0; i < D; i++) {
     CAFFE_ENFORCE_GE(lens_data[i], 0);
+    valsOffsets_[i] = output_dim;
     output_dim += lens_data[i];
   }
+  valsOffsets_[D] = output_dim;
+
   CAFFE_ENFORCE_EQ(vals.size(), output_dim);
   auto* output = Output(ONE_HOT);
   output->Resize(N, output_dim);
@@ -45,22 +33,40 @@ bool BatchOneHotOp<CPUContext>::DoRunWithType() {
   const auto* input_data = input.template data<T>();
   const auto* vals_data = vals.template data<T>();
   auto* output_data = output->template mutable_data<T>();
-  // eigen is column-major
-  auto input_m = ConstEigenMatrixMap<T>(input_data, D, N);
-  auto output_m = EigenMatrixMap<T>(output_data, output_dim, N);
 
-  // `p` is the column position in output_data, that points to the next
-  // column to be filled.
-  TIndex p = 0;
-  // one-hot encoding for each example.
-  for (TIndex j = 0; j < D; j++) {
-    for (TIndex t = 0; t < lens_data[j]; t++) {
-      output_m.row(p) =
-          input_m.row(j).cwiseEqual(vals_data[p]).template cast<T>();
-      p++;
+  for (TIndex i = 0; i < N; ++i) {
+    for (TIndex j = 0; j < D; j++) {
+      const auto input_val = input_data[i * D + j];
+      for (TIndex k = valsOffsets_[j]; k < valsOffsets_[j + 1]; ++k) {
+        output_data[k] = vals_data[k] == input_val;
+      }
     }
+    output_data += output_dim;
   }
+
   return true;
+}
+
+vector<TensorShape> TensorInferenceForBatchOneHot(
+    const OperatorDef& /* def */,
+    const vector<TensorShape>& in) {
+  std::vector<TIndex> output_dims(2);
+  output_dims[0] = in[0].dims(0); // N
+  output_dims[1] = in[2].dims(0); // vals.size()
+  return vector<TensorShape>{
+      CreateTensorShape(vector<TIndex>{output_dims}, in[0].data_type())};
+}
+
+OpSchema::Cost CostInferenceForBatchOneHot(
+    const OperatorDef& def,
+    const vector<TensorShape>& in) {
+  struct OpSchema::Cost c;
+  const TensorShape output = TensorInferenceForBatchOneHot(def, in)[0];
+
+  c.flops = 0;
+  c.bytes_moved = output.dims(0) * output.dims(1) * sizeof(int32_t);
+  c.params_bytes = 0;
+  return c;
 }
 
 template <>
@@ -180,7 +186,8 @@ REGISTER_CPU_OPERATOR(SegmentOneHot, SegmentOneHotOp);
 OPERATOR_SCHEMA(BatchBucketOneHot)
     .NumInputs(3)
     .NumOutputs(1)
-    .SetDoc(R"DOC(Input is a matrix tensor. Its first dimension is the batch
+    .SetDoc(R"DOC(
+Input is a matrix tensor. Its first dimension is the batch
 size. For each column, bucketize it based on the boundary values and then do
 one hot encoding. The `lengths` specifies the number of boundary values for each
 column. The final number of buckets is this number plus 1. This would also be
@@ -189,10 +196,10 @@ Note that each bucket is right-inclusive. That is, given boundary values
 [b1, b2, b3], the buckets are defined as (-int, b1], (b1, b2], (b2, b3], (b3, inf).
 For example
 
-If data = [[2, 3], [4, 1], [2, 5]], lengths = [2, 3],
-and boundaries = [0.1, 2.5, 1, 3.1, 4.5], then
+  If data = [[2, 3], [4, 1], [2, 5]], lengths = [2, 3],
+  and boundaries = [0.1, 2.5, 1, 3.1, 4.5], then
 
-output = [[0, 1, 0, 0, 1, 0, 0], [0, 0, 1, 1, 0, 0, 0], [0, 1, 0, 0, 0, 0, 1]]
+  output = [[0, 1, 0, 0, 1, 0, 0], [0, 0, 1, 1, 0, 0, 0], [0, 1, 0, 0, 0, 0, 1]]
 
 )DOC")
     .Input(0, "data", "input tensor matrix")
@@ -207,16 +214,16 @@ output = [[0, 1, 0, 0, 1, 0, 0], [0, 0, 1, 1, 0, 0, 0], [0, 1, 0, 0, 0, 0, 1]]
 OPERATOR_SCHEMA(BatchOneHot)
     .NumInputs(3)
     .NumOutputs(1)
-    .SetDoc(R"DOC(Input is a matrix tensor. Its first dimension is the batch
+    .SetDoc(R"DOC(
+Input is a matrix tensor. Its first dimension is the batch
 size. Expand each column of it using one hot encoding. The `lengths` specifies
 the size of each column after encoding, and the `values` is the dictionary value
 of one-hot encoding for each column. For example
 
-If data = [[2, 3], [4, 1], [2, 5]], lengths = [2, 3],
-and values = [2, 4, 1, 3, 5], then
+  If data = [[2, 3], [4, 1], [2, 5]], lengths = [2, 3],
+  and values = [2, 4, 1, 3, 5], then
 
-output = [[1, 0, 0, 1, 0], [0, 1, 1, 0, 0], [1, 0, 0, 0, 1]]
-
+  output = [[1, 0, 0, 1, 0], [0, 1, 1, 0, 0], [1, 0, 0, 0, 1]]
 )DOC")
     .Input(0, "data", "input tensor matrix")
     .Input(1, "lengths", "the size is the same as the width of the `data`")
@@ -224,7 +231,10 @@ output = [[1, 0, 0, 1, 0], [0, 1, 1, 0, 0], [1, 0, 0, 0, 1]]
     .Output(
         0,
         "output",
-        "output matrix that expands each input column with one hot encoding");
+        "output matrix that expands each input column with one hot encoding")
+    .TensorInferenceFunction(TensorInferenceForBatchOneHot)
+    .CostInferenceFunction(
+        OpSchema::CostInferenceFunctionType(CostInferenceForBatchOneHot));
 
 OPERATOR_SCHEMA(OneHot)
     .NumInputs(2)

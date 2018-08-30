@@ -1,21 +1,4 @@
-/**
- * Copyright (c) 2016-present, Facebook, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 #include "caffe2/core/operator_schema.h"
-
 #include "caffe2/core/logging.h"
 
 namespace caffe2 {
@@ -212,6 +195,11 @@ OpSchema& OpSchema::TensorInferenceFunction(
   return *this;
 }
 
+OpSchema& OpSchema::InheritOnnxSchema(const std::string& onnx_schema_name) {
+  onnx_schema_ = onnx_schema_name;
+  return *this;
+}
+
 OpSchema& OpSchema::IdenticalTypeAndShape() {
   return TensorInferenceFunction(
       [](const OperatorDef&, const vector<TensorShape>& input_types) {
@@ -247,8 +235,7 @@ OpSchema& OpSchema::ScalarType(::caffe2::TensorProto_DataType dt) {
       });
 }
 
-OpSchema& OpSchema::CostInferenceFunction(
-    CostInferenceFunctionType&& function) {
+OpSchema& OpSchema::CostInferenceFunction(CostInferenceFunctionType function) {
   cost_inference_function_ =
       caffe2::make_unique<CostInferenceFunctionType>(function);
   return *this;
@@ -271,10 +258,10 @@ OpSchema::Arg(const char* name, const char* description, bool required) {
   return *this;
 }
 
-#define DEFINE_STANDARG_ARG(name, str)                     \
-  const char* OpSchema::Arg_##name = #str;                 \
-  OpSchema& OpSchema::Arg##name(const char* description) { \
-    return Arg(#str, description, true);                   \
+#define DEFINE_STANDARG_ARG(name, str)                                \
+  CAFFE2_API const char* OpSchema::Arg_##name = #str;                 \
+  CAFFE2_API OpSchema& OpSchema::Arg##name(const char* description) { \
+    return Arg(#str, description, true);                              \
   }
 
 DEFINE_STANDARG_ARG(IsTest, is_test)

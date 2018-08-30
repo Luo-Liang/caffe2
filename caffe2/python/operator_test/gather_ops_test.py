@@ -1,25 +1,10 @@
-# Copyright (c) 2016-present, Facebook, Inc.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-##############################################################################
-
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 import numpy as np
 
-from caffe2.python import core
+from caffe2.python import core, workspace
 from hypothesis import given
 import caffe2.python.hypothesis_test_util as hu
 import hypothesis.strategies as st
@@ -85,6 +70,38 @@ class TestBatchGatherOps(hu.HypothesisTestCase):
 
         self.assertReferenceChecks(gc, op, [data, ind], ref_batch_gather)
         self.assertGradientChecks(gc, op, [data, ind], 0, [0])
+
+
+class TestGatherFused8BitRowwise(hu.HypothesisTestCase):
+    @given(rows_num=st.integers(1, 10000),
+           cols_num=st.integers(1, 128),
+           index_num=st.integers(0, 5000),
+           **hu.gcs)
+    def test_batch_gather_ops(self, rows_num, cols_num, index_num, gc, dc):
+        data = np.random.random((rows_num, cols_num)).astype(np.float32)
+        ind = np.random.randint(rows_num, size=(index_num, )).astype('int32')
+
+        net = core.Net("bench")
+
+        quantized_data = net.FloatToFused8BitRowwiseQuantized(
+            'data', 'quantized_data')
+        dequantized_data = net.Fused8BitRowwiseQuantizedToFloat(
+            quantized_data, 'dequantized_data')
+
+        net.Gather(
+            [dequantized_data, 'ind'], 'gather_reference')
+        net.GatherFused8BitRowwise(
+            [quantized_data, 'ind'], 'gather_quantized')
+
+        workspace.FeedBlob('data', data)
+        workspace.FeedBlob('ind', ind)
+        workspace.CreateNet(net)
+        workspace.RunNetOnce(net)
+
+        gather_reference = workspace.FetchBlob('gather_reference')
+        gather_quantized = workspace.FetchBlob('gather_quantized')
+        np.testing.assert_array_almost_equal(gather_reference, gather_quantized)
+
 
 
 if __name__ == "__main__":

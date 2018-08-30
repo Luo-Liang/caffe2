@@ -1,18 +1,3 @@
-# Copyright (c) 2016-present, Facebook, Inc.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-##############################################################################
-
 ## @package model_helper_api
 # Module caffe2.python.model_helper_api
 from __future__ import absolute_import
@@ -27,18 +12,20 @@ from past.builtins import basestring
 from caffe2.python.model_helper import ModelHelper
 
 # flake8: noqa
-from caffe2.python.helpers.dropout import *
-from caffe2.python.helpers.arg_scope import *
-from caffe2.python.helpers.fc import *
-from caffe2.python.helpers.pooling import *
-from caffe2.python.helpers.normalization import *
-from caffe2.python.helpers.nonlinearity import *
-from caffe2.python.helpers.array_helpers import *
 from caffe2.python.helpers.algebra import *
-from caffe2.python.helpers.train import *
+from caffe2.python.helpers.arg_scope import *
+from caffe2.python.helpers.array_helpers import *
+from caffe2.python.helpers.control_ops import *
 from caffe2.python.helpers.conv import *
-from caffe2.python.helpers.tools import *
+from caffe2.python.helpers.db_input import *
+from caffe2.python.helpers.dropout import *
 from caffe2.python.helpers.elementwise_linear import *
+from caffe2.python.helpers.fc import *
+from caffe2.python.helpers.nonlinearity import *
+from caffe2.python.helpers.normalization import *
+from caffe2.python.helpers.pooling import *
+from caffe2.python.helpers.tools import *
+from caffe2.python.helpers.train import *
 
 
 class HelperWrapper(object):
@@ -77,6 +64,9 @@ class HelperWrapper(object):
         'elementwise_linear': elementwise_linear,
         'layer_norm': layer_norm,
         'batch_mat_mul' : batch_mat_mul,
+        'cond' : cond,
+        'loop' : loop,
+        'db_input' : db_input,
     }
 
     def __init__(self, wrapped):

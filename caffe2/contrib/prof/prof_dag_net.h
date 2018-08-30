@@ -1,19 +1,3 @@
-/**
- * Copyright (c) 2016-present, Facebook, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 #pragma once
 
 #include "caffe2/core/net_dag.h"
@@ -43,14 +27,20 @@ class ProfDAGNet : public DAGNetBase {
   }
   ProfDAGProtos GetOperatorStats();
 
+  // GetPerOperatorCost collects the execution time of each operator, the
+  // output is formatted as a map: (netName__opIndex__opType, cost)
+  ProfDAGProtos GetPerOperatorCost();
+
  protected:
   bool DoRunAsync() override;
   bool RunAt(int chain_id, const std::vector<int>& chain) override;
   void PrintStats();
   void ValidateOpTensorDevices();
   ProfDAGProto ProtoMsg(std::pair<std::string, Stats> op_stat) const;
-  std::vector<Stats> time_per_op_;
-  CaffeMap<std::string, Stats> time_per_op_type_;
+  // Cumulative sum and sum squared time spent per operator instance in net.
+  std::vector<Stats> time_per_op_total_;
+  // Cumulative sum and sum squared time spent per unique operator type.
+  CaffeMap<std::string, Stats> time_per_op_type_total_;
   int runs_ = 0;
 };
 

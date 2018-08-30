@@ -1,19 +1,3 @@
-/**
- * Copyright (c) 2016-present, Facebook, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 #ifndef CAFFE2_CORE_CONTEXT_H_
 #define CAFFE2_CORE_CONTEXT_H_
 
@@ -27,11 +11,16 @@
 #include "caffe2/core/logging.h"
 #include "caffe2/core/typeid.h"
 #include "caffe2/proto/caffe2.pb.h"
-#include "caffe2/utils/math.h"
 
 CAFFE2_DECLARE_bool(caffe2_report_cpu_memory_usage);
 
 namespace caffe2 {
+
+/**
+ * A function to generate a random number seed that is unique in a best-effort
+ * basis, using an ever-incrementing seed and the current time.
+ */
+uint32_t RandomNumberSeed();
 
 /**
  * The CPU Context, representing the bare minimum of what a Context class in
@@ -77,11 +66,11 @@ namespace caffe2 {
 class CPUContext final {
  public:
   typedef std::mt19937 rand_gen_type;
-  CPUContext() : random_seed_(math::randomNumberSeed()) {}
+  CPUContext() : random_seed_(RandomNumberSeed()) {}
   explicit CPUContext(const DeviceOption& option)
       : random_seed_(
             option.has_random_seed() ? option.random_seed()
-                                     : math::randomNumberSeed()) {
+                                     : RandomNumberSeed()) {
     CAFFE_ENFORCE_EQ(option.device_type(), CPU);
   }
 
@@ -156,11 +145,17 @@ class CPUContext final {
     return false;
   }
 
+  // CPU streams are not implemented and are silently ignored by CPU ops,
+  // return true to signal executor to schedule a CPU op
+  static bool IsStreamFree(const DeviceOption& /* unused */, int /* unused */) {
+    return true;
+  }
+
  protected:
   // TODO(jiayq): instead of hard-coding a generator, make it more flexible.
   int random_seed_{1701};
   std::unique_ptr<rand_gen_type> random_generator_;
-  static MemoryAllocationReporter reporter_;
+  CAFFE2_API static MemoryAllocationReporter reporter_;
 
  private:
   static void ReportAndDelete(void* ptr) {

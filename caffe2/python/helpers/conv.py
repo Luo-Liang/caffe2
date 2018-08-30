@@ -1,18 +1,3 @@
-# Copyright (c) 2016-present, Facebook, Inc.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-##############################################################################
-
 ## @package conv
 # Module caffe2.python.helpers.conv
 from __future__ import absolute_import
@@ -42,6 +27,7 @@ def _ConvBase(
     order="NCHW",
     cudnn_exhaustive_search=False,
     ws_nbytes_limit=None,
+    float16_compute=False,
     **kwargs
 ):
     kernels = []
@@ -116,6 +102,10 @@ def _ConvBase(
 
     if transform_inputs is not None:
         transform_inputs(model, blob_out, inputs)
+
+    # Enable float 16 compute kernel (relevant for CUDA)
+    if float16_compute:
+        kwargs['float16_compute'] = True
 
     # For the operator, we no longer need to provide the no_bias field
     # because it can automatically figure this out from the number of

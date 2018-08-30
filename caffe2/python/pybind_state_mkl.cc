@@ -1,19 +1,3 @@
-/**
- * Copyright (c) 2016-present, Facebook, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 // Note(jiayq): the import_array function is done inside
 // caffe2_python.cc. Read
 // http://docs.scipy.org/doc/numpy-1.10.1/reference/c-api.array.html#miscellaneous
@@ -50,9 +34,8 @@ class MKLMemoryFetcher : public BlobFetcherBase {
     for (const auto dim : src.dims()) {
       npy_dims.push_back(dim);
     }
-    auto result = pybind11::object(
-        PyArray_SimpleNew(src.dims().size(), npy_dims.data(), numpy_type),
-        /* borrowed */ false);
+    auto result = pybind11::reinterpret_steal<pybind11::object>(
+        PyArray_SimpleNew(src.dims().size(), npy_dims.data(), numpy_type));
     void* ptr = static_cast<void*>(
         PyArray_DATA(reinterpret_cast<PyArrayObject*>(result.ptr())));
     src.CopyTo(ptr);

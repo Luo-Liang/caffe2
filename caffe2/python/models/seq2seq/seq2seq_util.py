@@ -1,18 +1,3 @@
-# Copyright (c) 2016-present, Facebook, Inc.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-##############################################################################
-
 ## @package seq2seq_util
 # Module caffe2.python.examples.seq2seq_util
 """ A bunch of util functions to build Seq2Seq models with Caffe2."""
@@ -579,7 +564,6 @@ def build_embedding_decoder(
             input_size = decoder_cells[-1].get_output_dim()
 
         cell = rnn_cell.LSTMCell(
-            name=get_layer_scope(scope, 'decoder', i),
             forward_only=forward_only,
             input_size=input_size,
             hidden_size=num_units,
@@ -618,6 +602,7 @@ def build_embedding_decoder(
         decoder_num_units=decoder_units_per_layer[-1],
         decoder_cells=decoder_cells,
         weighted_encoder_outputs=weighted_encoder_outputs,
+        name=scope,
     )
     decoder_outputs, _ = attention_decoder.apply_over_sequence(
         model=model,

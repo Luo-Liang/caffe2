@@ -1,19 +1,3 @@
-/**
- * Copyright (c) 2016-present, Facebook, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 #include "caffe2/operators/conv_op.h"
 #include "caffe2/operators/conv_op_impl.h"
 #include "caffe2/operators/conv_pool_op_base.h"
@@ -35,8 +19,8 @@ why they are separate files.
 std::function<void(OpSchema&)> ConvDocGenerator(const char* dim) {
   return [=](OpSchema& schema) {
     string doc = R"DOC(
-    The convolution operator consumes an input vector, a {dim}filter blob
-    and a bias blob and computes the output. {conv_doc})DOC";
+The convolution operator consumes an input vector, a {dim}filter blob
+and a bias blob and computes the output. {conv_doc})DOC";
     ReplaceAll(doc, "{dim}", dim);
     ReplaceAll(doc, "{conv_doc}", kConvDoc);
     schema.SetDoc(doc);
@@ -74,7 +58,10 @@ OPERATOR_SCHEMA(Conv)
     .NumInputs(2, 3)
     .NumOutputs(1)
     .TensorInferenceFunction(ConvPoolOpBase<CPUContext>::TensorInferenceForConv)
-    .FillUsing(ConvDocGenerator(""));
+    .CostInferenceFunction(OpSchema::CostInferenceFunctionType(
+        ConvPoolOpBase<CPUContext>::CostInferenceForConv))
+    .FillUsing(ConvDocGenerator(""))
+    .InheritOnnxSchema("Conv");
 
 REGISTER_CPU_OPERATOR(Conv1D, ConvOp<float, CPUContext>);
 
@@ -82,7 +69,8 @@ OPERATOR_SCHEMA(Conv1D)
     .NumInputs(2, 3)
     .NumOutputs(1)
     .TensorInferenceFunction(ConvPoolOpBase<CPUContext>::TensorInferenceForConv)
-    .FillUsing(ConvDocGenerator("1D "));
+    .FillUsing(ConvDocGenerator("1D "))
+    .InheritOnnxSchema("Conv");
 
 REGISTER_CPU_OPERATOR(Conv2D, ConvOp<float, CPUContext>);
 
@@ -92,14 +80,18 @@ OPERATOR_SCHEMA(Conv2D)
     .CostInferenceFunction(OpSchema::CostInferenceFunctionType(
         ConvPoolOpBase<CPUContext>::CostInferenceForConv))
     .TensorInferenceFunction(ConvPoolOpBase<CPUContext>::TensorInferenceForConv)
-    .FillUsing(ConvDocGenerator("2D "));
+    .FillUsing(ConvDocGenerator("2D "))
+    .InheritOnnxSchema("Conv");
 
 REGISTER_CPU_OPERATOR(Conv3D, ConvOp<float, CPUContext>);
 
 OPERATOR_SCHEMA(Conv3D)
     .NumInputs(2, 3)
     .NumOutputs(1)
+    .CostInferenceFunction(OpSchema::CostInferenceFunctionType(
+        ConvPoolOpBase<CPUContext>::CostInferenceForConv))
     .TensorInferenceFunction(ConvPoolOpBase<CPUContext>::TensorInferenceForConv)
-    .FillUsing(ConvDocGenerator("3D "));
+    .FillUsing(ConvDocGenerator("3D "))
+    .InheritOnnxSchema("Conv");
 
 } // namespace caffe2

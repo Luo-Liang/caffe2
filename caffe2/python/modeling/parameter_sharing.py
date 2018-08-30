@@ -1,18 +1,3 @@
-# Copyright (c) 2016-present, Facebook, Inc.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-##############################################################################
-
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -21,7 +6,6 @@ from __future__ import unicode_literals
 from caffe2.python import scope
 
 import contextlib
-import itertools
 import logging
 
 logger = logging.getLogger(__name__)
@@ -85,8 +69,9 @@ class ParameterSharingContext(object):
     def pop(self):
         assert len(self._contexts) > 0
         self._contexts.pop()
-        self._scope_overrides = dict(*itertools.chain(
-            [x.items() for x in self._contexts]))
+        self._scope_overrides = {}
+        for x in self._contexts:
+            self._scope_overrides.update(x)
 
 
 parameter_sharing_context = ParameterSharingContext()

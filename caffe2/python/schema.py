@@ -1,18 +1,3 @@
-# Copyright (c) 2016-present, Facebook, Inc.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-##############################################################################
-
 ## @package schema
 # Module caffe2.python.schema
 """
@@ -42,6 +27,7 @@ from collections import OrderedDict, namedtuple
 from past.builtins import basestring
 from future.utils import viewitems, viewkeys, viewvalues
 from itertools import islice
+from six import StringIO
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -197,6 +183,16 @@ class Field(object):
             (self.field_metadata() == other.field_metadata())
         )
 
+    def _pprint_impl(self, indent, str_buffer):
+        raise NotImplementedError('Field is an abstrct class.')
+
+    def __repr__(self):
+        str_buffer = StringIO()
+        self._pprint_impl(0, str_buffer)
+        contents = str_buffer.getvalue()
+        str_buffer.close()
+        return contents
+
 
 class List(Field):
     """Represents a variable-length list.
@@ -245,9 +241,13 @@ class List(Field):
             _normalize_field(self.lengths, keep_blobs=keep_blobs)
         )
 
-    def __repr__(self):
-        return "List(lengths={!r}, _items={!r})".format(
-            self.lengths, self._items)
+    def _pprint_impl(self, indent, str_buffer):
+        str_buffer.write('  ' * indent + "List(\n")
+        str_buffer.write('  ' * (indent + 1) + "lengths=\n")
+        self.lengths._pprint_impl(indent=indent + 2, str_buffer=str_buffer)
+        str_buffer.write('  ' * (indent + 1) + "_items=\n")
+        self._items._pprint_impl(indent=indent + 2, str_buffer=str_buffer)
+        str_buffer.write('  ' * indent + ")\n")
 
     def __getattr__(self, item):
         """If the value of this list is a struct,
@@ -399,13 +399,12 @@ class Struct(Field):
         except (KeyError, TypeError):
             return None
 
-    def __repr__(self):
-        return "Struct({})".format(
-            ', '.join(
-                "{}={!r}".format(name, field)
-               for name, field in viewitems(self.fields)
-            )
-        )
+    def _pprint_impl(self, indent, str_buffer):
+        str_buffer.write('  ' * indent + "Struct( \n")
+        for name, field in viewitems(self.fields):
+            str_buffer.write('  ' * (indent + 1) + "{}=".format(name) + "\n")
+            field._pprint_impl(indent=indent + 2, str_buffer=str_buffer)
+        str_buffer.write('  ' * indent + ") \n")
 
     def __contains__(self, item):
         field = self._get_field_by_nested_name(item)
@@ -438,6 +437,15 @@ class Struct(Field):
             if field is None:
                 raise KeyError('field "%s" not found' % (item))
             return field
+
+    def get(self, item, default_value):
+        """
+        similar to python's dictionary get method, return field of item if found
+        (i.e. self.item is valid) or otherwise return default_value
+
+        it's a syntax suger of python's builtin getattr method
+        """
+        return getattr(self, item, default_value)
 
     def __getattr__(self, item):
         if item.startswith('__'):
@@ -758,9 +766,10 @@ class Scalar(Field):
             self.dtype = np.dtype(np.void)
         self._validate_metadata()
 
-    def __repr__(self):
-        return 'Scalar({!r}, {!r}, {!r})'.format(
-            self.dtype, self._blob, self._metadata)
+    def _pprint_impl(self, indent, str_buffer):
+        str_buffer.write('  ' * (indent) +
+            'Scalar({!r}, {!r}, {!r})'.format(
+            self.dtype, self._blob, self._metadata) + "\n")
 
     def id(self):
         """
@@ -1110,6 +1119,7 @@ def InitEmptyRecord(net, schema_or_record, enforce_types=False):
 
 _DATA_TYPE_FOR_DTYPE = [
     (np.str, core.DataType.STRING),
+    (np.float16, core.DataType.FLOAT16),
     (np.float32, core.DataType.FLOAT),
     (np.float64, core.DataType.DOUBLE),
     (np.bool, core.DataType.BOOL),

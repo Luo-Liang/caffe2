@@ -1,19 +1,3 @@
-/**
- * Copyright (c) 2016-present, Facebook, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 #ifndef CAFFE2_CORE_COMMON_CUDNN_H_
 #define CAFFE2_CORE_COMMON_CUDNN_H_
 
@@ -31,6 +15,12 @@
 static_assert(
     CUDNN_VERSION >= 5000,
     "Caffe2 requires cudnn version 5.0 or above.");
+
+#if CUDNN_VERSION < 6000
+#pragma message "CUDNN version under 6.0 is supported at best effort."
+#pragma message "We strongly encourage you to move to 6.0 and above."
+#pragma message "This message is intended to annoy you enough to update."
+#endif // CUDNN_VERSION < 6000
 
 #define CUDNN_VERSION_MIN(major, minor, patch) \
   (CUDNN_VERSION >= ((major) * 1000 + (minor) * 100 + (patch)))
@@ -136,6 +126,7 @@ class cudnnTypeWrapper<float> {
   }
 };
 
+#if CUDNN_VERSION_MIN(6, 0, 0)
 template <>
 class cudnnTypeWrapper<int> {
  public:
@@ -151,6 +142,7 @@ class cudnnTypeWrapper<int> {
     return &v;
   }
 };
+#endif // CUDNN_VERSION_MIN(6, 0, 0)
 
 template <>
 class cudnnTypeWrapper<double> {

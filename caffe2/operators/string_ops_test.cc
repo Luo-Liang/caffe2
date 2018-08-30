@@ -1,19 +1,3 @@
-/**
- * Copyright (c) 2016-present, Facebook, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 #include <gtest/gtest.h>
 #include <vector>
 
@@ -95,7 +79,7 @@ TEST_F(StringJoinOpTest, testString2DJoin) {
 }
 
 TEST_F(StringJoinOpTest, testFloat1DJoin) {
-  std::vector<float> input = {3.90, 5.234, 8.12};
+  std::vector<float> input = {3.90f, 5.234f, 8.12f};
 
   auto blob = caffe2::make_unique<Blob>();
   auto* tensor = blob->GetMutable<TensorCPU>();
@@ -114,8 +98,8 @@ TEST_F(StringJoinOpTest, testFloat1DJoin) {
 }
 
 TEST_F(StringJoinOpTest, testFloat2DJoin) {
-  std::vector<std::vector<float>> input = {{1.23, 2.45, 3.56},
-                                           {4.67, 5.90, 6.32}};
+  std::vector<std::vector<float>> input = {{1.23f, 2.45f, 3.56f},
+                                           {4.67f, 5.90f, 6.32f}};
 
   auto blob = caffe2::make_unique<Blob>();
   auto* tensor = blob->GetMutable<TensorCPU>();

@@ -1,28 +1,14 @@
-# Copyright (c) 2016-present, Facebook, Inc.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-##############################################################################
-
 ## @package github
 # Module caffe2.python.docs.github
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+import argparse
+import os
 from caffe2.python.docs.formatter import Markdown
 from caffe2.python.docs.generator import OpDocGenerator, DocUploader
 from caffe2.python.docs.generator import OperatorDoc, OperatorEngine
-import os
 
 
 class GHOpDocUploader(DocUploader):
@@ -39,9 +25,9 @@ class GHMarkdown(Markdown):
 
     def addDocHeader(self):
         self.addLine("---")
-        self.addLine("docid: operators-catalogue")
-        self.addLine("title: Operators Catalogue")
-        self.addLine("layout: docs")
+        self.addLine("docid: operators-catalog")
+        self.addLine("title: Operators Catalog")
+        self.addLine("layout: operators")
         self.addLine("permalink: /docs/operators-catalogue.html")
         self.addLine("---")
         self.addLine("* TOC")
@@ -68,7 +54,7 @@ class GHMarkdown(Markdown):
 
 def getCodeLink(formatter, schema):
     formatter = formatter.clone()
-    path = os.path.relpath(schema.file, "caffe2")
+    path = os.path.join("caffe2", os.path.relpath(schema.file, "caffe2"))
     schemaLink = ('https://github.com/caffe2/caffe2/blob/master/{path}'
                   .format(path=path))
     formatter.addLink('{path}'.format(path=path), schemaLink)
@@ -127,6 +113,13 @@ class GHOpDocGenerator(OpDocGenerator):
 
 
 if __name__ == "__main__":
-    ops = GHOpDocGenerator(GHMarkdown(), GHOpDocUploader)
-    ops.createBody()
-    print(ops.content_body)
+    parser = argparse.ArgumentParser(description="Operators catalog generator.")
+    parser.add_argument('catalog_path', type=str,
+                        help='operators-catalogue.md to write out to')
+    args = parser.parse_args()
+
+    with open(args.catalog_path, 'w') as fp:
+        ops = GHOpDocGenerator(GHMarkdown(), GHOpDocUploader)
+        ops.createBody()
+        fp.write(ops.content_body)
+        print("Updated {}!".format(args.catalog_path))

@@ -1,19 +1,3 @@
-/**
- * Copyright (c) 2016-present, Facebook, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 // conv_op_impl.h is the templated implementation of the conv_op.h file.
 #ifndef CAFFE2_OPERATORS_CONV_OP_IMPL_H_
 #define CAFFE2_OPERATORS_CONV_OP_IMPL_H_
@@ -69,21 +53,9 @@ bool ConvOp<T, Context>::RunOnDeviceWithOrderNCHW() {
   buffer_shape.insert(
       buffer_shape.end(), output_dims.begin(), output_dims.end());
 
-  if (kernel_.size() != 2 && img_shape_device_.size() != img_shape.size()) {
-    img_shape_device_.Resize(img_shape.size());
-    context_.template Copy<int, CPUContext, Context>(
-        img_shape.size(),
-        img_shape.data(),
-        img_shape_device_.template mutable_data<int>());
-  }
-
-  if (kernel_.size() != 2 &&
-      col_buffer_shape_device_.size() != buffer_shape.size()) {
-    col_buffer_shape_device_.Resize(buffer_shape.size());
-    context_.template Copy<int, CPUContext, Context>(
-        buffer_shape.size(),
-        buffer_shape.data(),
-        col_buffer_shape_device_.template mutable_data<int>());
+  if (kernel_.size() != 2) {
+    SetDeviceTensor(img_shape, &img_shape_device_);
+    SetDeviceTensor(buffer_shape, &col_buffer_shape_device_);
   }
 
   const int col_buffer_size =
@@ -101,20 +73,11 @@ bool ConvOp<T, Context>::RunOnDeviceWithOrderNCHW() {
   // and width.
   const T* Xdata = X.template data<T>();
   if (InputSize() == 3) {
-    auto& bias = Input(BIAS);
+    const auto& bias = Input(BIAS);
     CAFFE_ENFORCE(bias.ndim() == 1);
     CAFFE_ENFORCE(bias.dim32(0) == M);
-    if (bias_multiplier_.size() != output_image_size) {
-      // If the helper bias multiplier is not image size, reshape and fill it
-      // with
-      // one.
-      bias_multiplier_.Resize(vector<TIndex>(1, output_image_size));
-      math::Set<T, Context>(
-          output_image_size,
-          static_cast<T>(1),
-          bias_multiplier_.template mutable_data<T>(),
-          &context_);
-    }
+    ConvPoolOpBase<Context>::template SetBiasMultiplier<T>(
+        output_image_size, &bias_multiplier_);
   }
   T* Ydata = Y->template mutable_data<T>();
 
@@ -278,18 +241,11 @@ bool ConvOp<T, Context>::RunOnDeviceWithOrderNHWC() {
     }
   } else {
     if (InputSize() == 3) {
-      auto& bias = Input(BIAS);
+      const auto& bias = Input(BIAS);
       CAFFE_ENFORCE(1 == bias.ndim());
       CAFFE_ENFORCE(bias.dim32(0) == M);
-      if (bias_multiplier_.size() != output_image_size) {
-        // If the helper bias multiplier is not M, reshape and fill it with one.
-        bias_multiplier_.Resize(vector<TIndex>(1, output_image_size));
-        math::Set<T, Context>(
-            output_image_size,
-            static_cast<T>(1),
-            bias_multiplier_.template mutable_data<T>(),
-            &context_);
-      }
+      ConvPoolOpBase<Context>::template SetBiasMultiplier<T>(
+          output_image_size, &bias_multiplier_);
     }
     auto f = [&](Tensor<Context>* col_buffer) {
       col_buffer->Resize(
@@ -401,26 +357,13 @@ bool ConvGradientOp<T, Context>::RunOnDeviceWithOrderNCHW() {
       col_buffer_shape.end(), output_dims.begin(), output_dims.end());
   col_buffer_.Resize(col_buffer_shape);
 
-  if (kernel_.size() != 2 && img_shape_device_.size() != img_shape.size()) {
-    img_shape_device_.Resize(img_shape.size());
-    context_.template Copy<int, CPUContext, Context>(
-        img_shape.size(),
-        img_shape.data(),
-        img_shape_device_.template mutable_data<int>());
+  if (kernel_.size() != 2) {
+    SetDeviceTensor(img_shape, &img_shape_device_);
+    SetDeviceTensor(col_buffer_shape, &col_buffer_shape_device_);
   }
 
   const int col_buffer_size =
       (C / group_) * kernel_dims_size * output_image_size;
-
-  if (kernel_.size() != 2 &&
-      col_buffer_shape_device_.size() != col_buffer_shape.size()) {
-    col_buffer_shape_device_.Resize(col_buffer_shape.size());
-    context_.template Copy<int, CPUContext, Context>(
-        col_buffer_shape.size(),
-        col_buffer_shape.data(),
-        col_buffer_shape_device_.template mutable_data<int>());
-  }
-
   const T* Xdata = X.template data<T>();
   const T* filter_data = filter.template data<T>();
   const T* dYdata = dY.template data<T>();

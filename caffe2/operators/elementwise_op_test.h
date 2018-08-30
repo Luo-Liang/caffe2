@@ -1,19 +1,3 @@
-/**
- * Copyright (c) 2016-present, Facebook, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 #ifndef CAFFE2_OPERATORS_ELEMENTWISE_OP_TEST_H_
 #define CAFFE2_OPERATORS_ELEMENTWISE_OP_TEST_H_
 
@@ -235,6 +219,23 @@ void elementwiseEQ() {
     caffe2::TensorCPU Z(blob->Get<caffe2::Tensor<Context>>());
     EXPECT_EQ(Z.size(), N);
     std::vector<bool> result{false, true, false, true};
+    for (size_t i = 0; i < Z.size(); ++i) {
+      EXPECT_EQ(Z.template data<bool>()[i], result[i]);
+    }
+  }
+  { // boolean
+    FillTensor<Context, uint8_t, bool>(
+        &ws, "X", {N}, {true, false, false, true});
+    FillTensor<Context, uint8_t, bool>(
+        &ws, "Y", {N}, {true, false, true, false});
+    std::unique_ptr<caffe2::OperatorBase> op(caffe2::CreateOperator(def, &ws));
+    EXPECT_NE(nullptr, op.get());
+    EXPECT_TRUE(op->Run());
+    auto* blob = ws.GetBlob("Z");
+    EXPECT_NE(nullptr, blob);
+    caffe2::TensorCPU Z(blob->Get<caffe2::Tensor<Context>>());
+    EXPECT_EQ(Z.size(), N);
+    std::vector<bool> result{true, true, false, false};
     for (size_t i = 0; i < Z.size(); ++i) {
       EXPECT_EQ(Z.template data<bool>()[i], result[i]);
     }

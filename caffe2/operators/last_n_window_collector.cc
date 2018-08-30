@@ -1,19 +1,3 @@
-/**
- * Copyright (c) 2016-present, Facebook, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 #include <memory>
 #include <string>
 #include <vector>
@@ -52,8 +36,9 @@ class LastNWindowCollectorOp : public Operator<Context> {
     const auto& input = Input(DATA);
 
     CAFFE_ENFORCE_GE(input.ndim(), 1);
-
-    bool output_initialized = output->size() > 0;
+    bool output_initialized = output->size() > 0 &&
+        (static_cast<std::shared_ptr<std::vector<TensorCPU>>*>(
+             output->raw_mutable_data(input.meta()))[0] != nullptr);
     if (output_initialized) {
       CAFFE_ENFORCE_EQ(output->ndim(), input.ndim());
       for (size_t i = 1; i < input.ndim(); ++i) {
@@ -68,6 +53,9 @@ class LastNWindowCollectorOp : public Operator<Context> {
       auto* num_visited_tensor = Output(NUM_VISITED);
       CAFFE_ENFORCE_EQ(1, num_visited_tensor->size());
       auto* num_visited = num_visited_tensor->template mutable_data<int64_t>();
+      if (!output_initialized) {
+        *num_visited = 0;
+      }
       CAFFE_ENFORCE_GE(*num_visited, 0);
       *num_visited += num_entries;
     }
@@ -95,6 +83,9 @@ class LastNWindowCollectorOp : public Operator<Context> {
     auto* next = Output(NEXT);
     CAFFE_ENFORCE_EQ(0, next->ndim());
     auto* next_data = next->template mutable_data<int32_t>();
+    if (!output_initialized) {
+      *next_data = 0;
+    }
     CAFFE_ENFORCE_LT(*next_data, output->dim(0));
 
     auto block_size = input.size_from_dim(1);
@@ -146,27 +137,30 @@ Collect the last N rows from input data. The purpose is to keep track of data
 accross batches, so for example suppose the LastNWindowCollector is called
 successively with the following input data
 
-[1,2,3,4]
-[5,6,7]
-[8,9,10,11]
+  [1, 2, 3, 4]
+  [5, 6, 7]
+  [8, 9, 10, 11]
 
 And the number of items is set to 6, then the output after the 3rd call
 will contain the following elements:
-[6,7,8,9,10,11]
+
+  [6, 7, 8, 9, 10, 11]
 
 No guarantee is made on the ordering of elements in input. So a valid value for
 output could have been
-[11,10,9,8,7,6]
+
+  [11, 10, 9, 8, 7, 6]
 
 Also, this method works for any order tensor, treating the first dimension as
 input rows and keeping the last N rows seen as input. So for instance:
 
-[[1,2],[2,3],[3,4],[4,5]]
-[[5,6],[6,7],[7,8]]
-[[8,9],[9,10],[10,11],[11,12]]
+  [[1, 2], [2, 3], [3, 4], [4, 5]]
+  [[5, 6], [6, 7], [7, 8]]
+  [[8, 9], [9, 10], [10, 11], [11, 12]]
 
 A possible output would be
-[[6,7],[7,8],[8,9],[9,10],[10,11],[11,12]]
+
+  [[6, 7], [7, 8], [8, 9], [9, 10], [10, 11], [11, 12]]
 
 This is not thread safe unless a mutex is given.
 )DOC")
@@ -189,5 +183,5 @@ This is not thread safe unless a mutex is given.
     .Output(1, "next cursor", "Updated input cursor")
     .Output(2, "NUM_VISITED", "number of records seen so far");
 SHOULD_NOT_DO_GRADIENT(LastNWindowCollector);
-}
-}
+} // namespace
+} // namespace caffe2

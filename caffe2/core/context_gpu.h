@@ -1,19 +1,3 @@
-/**
- * Copyright (c) 2016-present, Facebook, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 #ifndef CAFFE2_CORE_CONTEXT_GPU_H_
 #define CAFFE2_CORE_CONTEXT_GPU_H_
 
@@ -24,6 +8,7 @@
 #include "caffe2/core/common_gpu.h"
 #include "caffe2/core/context.h"
 #include "caffe2/core/logging.h"
+#include "caffe2/core/numa.h"
 #include "caffe2/core/tensor.h"
 #include "caffe2/core/types.h"
 #include "caffe2/proto/caffe2.pb.h"
@@ -141,7 +126,7 @@ class CUDAContext final {
 
   ~CUDAContext() {
     if (curand_generator_) {
-      CURAND_ENFORCE(curandDestroyGenerator(curand_generator_));
+      CURAND_CHECK(curandDestroyGenerator(curand_generator_));
     }
     FinishDeviceComputation();
   }
@@ -253,6 +238,11 @@ class CUDAContext final {
     return true;
   }
 
+  static bool IsStreamFree(const DeviceOption& option, int stream_id) {
+    auto stream = CUDAContext::cuda_stream(option.cuda_gpu_id(), stream_id);
+    return cudaStreamQuery(stream) == cudaSuccess;
+  }
+
  protected:
   static void Delete(void* data);
   void set_stream_id(int stream_id) {
@@ -299,7 +289,14 @@ struct PinnedCPUAllocator final : CPUAllocator {
   std::pair<void*, MemoryDeleter> New(size_t nbytes) override {
     void* data;
     std::lock_guard<std::mutex> lock(CUDAContext::mutex());
-    CUDA_ENFORCE(cudaMallocHost(&data, nbytes));
+    if (IsNUMAEnabled()) {
+      auto ptr_and_deleter = baseAllocator_.New(nbytes);
+      data = ptr_and_deleter.first;
+      CAFFE_ENFORCE(data);
+      CUDA_ENFORCE(cudaHostRegister(data, nbytes, cudaHostRegisterDefault));
+    } else {
+      CUDA_ENFORCE(cudaMallocHost(&data, nbytes));
+    }
     memset(data, 0, nbytes);
     return {data, Delete};
   }
@@ -316,16 +313,23 @@ struct PinnedCPUAllocator final : CPUAllocator {
     // But, if one calls CPUContext::New() before any cuda allocations,
     // PinnedCPUAllocator can still delete the corresponding memory.
     std::lock_guard<std::mutex> lock(CUDAContext::mutex());
-    cudaError_t err = cudaFreeHost(data);
-    if (err == cudaErrorInvalidValue) {
-      free(data);
-      // Calling cudaGetLastError will reset the cuda error.
-      cudaGetLastError();
+    if (IsNUMAEnabled()) {
+      CUDA_ENFORCE(cudaHostUnregister(data));
+      DefaultCPUAllocator::Delete(data);
     } else {
-      // For all other errors, still do a cuda check.
-      CUDA_ENFORCE(err);
+      cudaError_t err = cudaFreeHost(data);
+      if (err == cudaErrorInvalidValue) {
+        free(data);
+        // Calling cudaGetLastError will reset the cuda error.
+        cudaGetLastError();
+      } else {
+        // For all other errors, still do a cuda check.
+        CUDA_ENFORCE(err);
+      }
     }
   }
+
+  DefaultCPUAllocator baseAllocator_;
 };
 
 // For simplicity, we will typedef Tensor<CPUContext> to TensorCPU.

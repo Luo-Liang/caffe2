@@ -1,18 +1,3 @@
-# Copyright (c) 2016-present, Facebook, Inc.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-##############################################################################
-
 ## @package pipeline
 # Module caffe2.python.pipeline
 from __future__ import absolute_import
@@ -374,7 +359,11 @@ class ProcessingReader(Reader):
 
     def read_ex(self, init_net, exit_net):
         read_nets, status, rec = self.reader.read_record_ex(init_net, exit_net)
-        with NetBuilder(_stop_blob=status):
+        # We don't use status as stop_blob of NetBuilder it's not guarantee that
+        # it would end up being the true stob_blob. For example,
+        # ReaderWithLimitBase doesn't pass the status through but rather copy
+        # from it.
+        with NetBuilder() as nb:
             # Current NetBuilder is optionally used inside the processor,
             # then its children are retrived inside of
             # normalize_processor_output.
@@ -382,9 +371,12 @@ class ProcessingReader(Reader):
             # this logic will be more natural.
             result = normalize_processor_output(self.processor(rec))
         read_nets += result.nets
-        if result.should_stop is not None:
+        if result.should_stop or nb._stop_blob:
             stop_net = core.Net('stop_net')
-            stop_net.Copy([result.should_stop], [status])
+            if result.should_stop:
+                stop_net.Or([status, result.should_stop], [status])
+            if nb._stop_blob:
+                stop_net.Or([status, nb._stop_blob], [status])
             read_nets.append(stop_net)
         if hasattr(self.processor, 'setup'):
             init_net.add_attribute(TaskGroup.LOCAL_SETUP, self.processor)

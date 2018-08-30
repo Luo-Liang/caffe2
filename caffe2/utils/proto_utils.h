@@ -1,19 +1,3 @@
-/**
- * Copyright (c) 2016-present, Facebook, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 #ifndef CAFFE2_UTILS_PROTO_UTILS_H_
 #define CAFFE2_UTILS_PROTO_UTILS_H_
 
@@ -30,6 +14,10 @@ namespace caffe2 {
 
 using std::string;
 using ::google::protobuf::MessageLite;
+
+// A wrapper function to shut down protobuf library (this is needed in ASAN
+// testing and valgrind cases to avoid protobuf appearing to "leak" memory).
+void ShutdownProtobufLibrary();
 
 // A wrapper function to return device name string for use in blob serialization
 // / deserialization. This should have one to one correspondence with
@@ -61,9 +49,17 @@ inline void WriteProtoToBinaryFile(const MessageLite& proto,
 
 #ifdef CAFFE2_USE_LITE_PROTO
 
-inline string ProtoDebugString(const MessageLite& proto) {
-  return proto.SerializeAsString();
+namespace TextFormat {
+inline bool ParseFromString(const string& spec, MessageLite* proto) {
+  LOG(FATAL) << "If you are running lite version, you should not be "
+             << "calling any text-format protobuffers.";
 }
+} // namespace TextFormat
+
+
+string ProtoDebugString(const MessageLite& proto);
+
+bool ParseProtoFromLargeString(const string& str, MessageLite* proto);
 
 // Text format MessageLite wrappers: these functions do nothing but just
 // allowing things to compile. It will produce a runtime error if you are using
@@ -103,9 +99,13 @@ inline bool ReadProtoFromFile(const string& filename, MessageLite* proto) {
 
 using ::google::protobuf::Message;
 
-inline string ProtoDebugString(const Message& proto) {
-  return proto.ShortDebugString();
-}
+namespace TextFormat {
+bool ParseFromString(const string& spec, Message* proto);
+} // namespace TextFormat
+
+string ProtoDebugString(const Message& proto);
+
+bool ParseProtoFromLargeString(const string& str, Message* proto);
 
 bool ReadProtoFromTextFile(const char* filename, Message* proto);
 inline bool ReadProtoFromTextFile(const string filename, Message* proto) {
@@ -300,6 +300,7 @@ inline void AddArgument(const string& name, const T& value, OperatorDef* def) {
 bool inline operator==(const DeviceOption& dl, const DeviceOption& dr) {
   return IsSameDevice(dl, dr);
 }
+
 
 } // namespace caffe2
 

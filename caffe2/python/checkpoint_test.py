@@ -1,31 +1,16 @@
-# Copyright (c) 2016-present, Facebook, Inc.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-##############################################################################
-
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
 from caffe2.python.schema import Struct, ConstRecord
-from caffe2.python import core, workspace
+from caffe2.python import core, workspace, model_helper
 from caffe2.python.session import LocalSession
 from caffe2.python.dataset import Dataset
 from caffe2.python.pipeline import pipe
 from caffe2.python.checkpoint import (
-    CheckpointManager, MultiNodeCheckpointManager, Job, JobRunner,
-    UploadTaskGroupBuilder)
+    CheckpointManager, MultiNodeCheckpointManager, Job, JobRunner, epoch_limiter,
+    UploadTaskGroupBuilder, db_name)
 from caffe2.python.net_builder import ops
 from caffe2.python.task import Node, Task, TaskGroup, WorkspaceType, Cluster
 from caffe2.python.test_util import TestCase
@@ -71,7 +56,7 @@ class UploadToLocalFile(UploadTaskGroupBuilder):
         with TaskGroup(WorkspaceType.GLOBAL) as upload_task_group:
             for node, manager in checkpoint_manager._node_managers:
                 with Node(str(node)), Task():
-                    src_path = manager._db_name(epoch)
+                    src_path = db_name(epoch, manager._node_name, manager._db_prefix)
                     dest_path = os.path.join(self.dest_dir, str(node))
                     ops.Python((local_copy_op,
                                 [src_path, dest_path], {}))([], [])
@@ -246,6 +231,103 @@ class TestCheckpoint(TestCase):
                 node_name = 'trainer_%d' % node_id
                 upload_path = os.path.join(upload_dir, node_name)
                 self.assertTrue(os.path.exists(upload_path))
+
+        finally:
+            shutil.rmtree(tmpdir)
+
+    def test_ckpt_save_failure(self):
+        num_nodes = 3
+        # The goal of this test is to ensure that the job runs
+        # successfully even if saving a checkpoint fails.
+        # Hence tmpdir is a non existent directory to emulate a failure
+        # while saving checkpoints
+        tmpdir = "/tmp/path_does_not_exist/"
+
+        # Check the saving checkpoint failure does not cause job failure
+        workspace.ResetWorkspace()
+        for node_id in range(num_nodes):
+            ws = workspace.C.Workspace()
+            session = LocalSession(ws)
+            checkpoint = MultiNodeCheckpointManager(tmpdir, 'minidb')
+            with Cluster():
+                with Job() as job:
+                    build_pipeline(node_id)
+                compiled_job = job.compile(LocalSession)
+                job_runner = JobRunner(compiled_job, checkpoint)
+                num_epochs = job_runner(session)
+            # make sure all epochs are executed even though saving the checkpoint failed
+            # Saving checkpoint failure should not cause job failure
+            self.assertEquals(num_epochs, len(EXPECTED_TOTALS))
+
+    def test_download_group_simple(self):
+        """
+        A simple test that ensures we have download task group
+        executed between epoch_group and exit_group.
+        """
+        model = model_helper.ModelHelper(name="test_model")
+        download_net = core.Net("download_net")
+
+        for name in ["input1", "input2", "output", "download_result"]:
+            model.param_init_net.ConstantFill([],
+                                              [name],
+                                              shape=[8, ],
+                                              value=1.0,
+                                              run_once=0)
+        model.net.Add(["input1", "input2"], ["output"])
+        download_net.Copy(["output"], ["download_result"])
+
+        # All blob values are initialized as 1.0, after download_net executed
+        # we expect to see download result is the same as training result.
+        with Job() as job:
+            with Node("trainer:0"):
+                with job.init_group:
+                    Task(step=model.param_init_net)
+                with job.epoch_group:
+                    with Task():
+                        with ops.loop(1):
+                            ops.net(model.net)
+                with job.download_group:
+                    Task(step=download_net)
+
+                epoch_limiter(job, 1)
+
+        ws = workspace.C.Workspace()
+        session = LocalSession(ws)
+        job_runner = JobRunner(job)
+        job_runner(session)
+
+        expected_result = np.full(8, 2.0).astype(np.float32)
+        self.assertTrue(np.array_equal(expected_result,
+                                       ws.fetch_blob("output")))
+        self.assertTrue(np.array_equal(expected_result,
+                                       ws.fetch_blob("download_result")))
+
+    def test_reuse_checkpoint_manager(self):
+        """
+        A simple test that ensures we can reuse a MultiNodeCheckpointManager
+        object.
+        """
+        try:
+            tmpdir = tempfile.mkdtemp()
+            ws = workspace.C.Workspace()
+            session = LocalSession(ws)
+            checkpoint = MultiNodeCheckpointManager(tmpdir, 'minidb')
+
+            with Job() as job:
+                outputs = build_pipeline(node_id=0)
+            output_fetcher = Task(step=core.Net('empty'), outputs=outputs)
+            compiled_job = job.compile(LocalSession)
+
+            def fetch_total(session):
+                session.run(output_fetcher)
+                return output_fetcher.outputs()[0].fetch()
+
+            num_epochs = JobRunner(compiled_job, checkpoint)(session)
+            for initial_epoch in range(1, num_epochs + 1):
+                JobRunner(
+                    compiled_job,
+                    checkpoint, resume_from_epoch=initial_epoch)(session)
+                self.assertEquals(fetch_total(session), EXPECTED_TOTALS[-1])
 
         finally:
             shutil.rmtree(tmpdir)

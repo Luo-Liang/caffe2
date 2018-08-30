@@ -1,26 +1,9 @@
-/**
- * Copyright (c) 2016-present, Facebook, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 #include <chrono>  // NOLINT
 #include <ctime>
 #include <thread>  // NOLINT
 
 #include "caffe2/core/net.h"
 #include "caffe2/core/operator.h"
-#include "google/protobuf/text_format.h"
 #include <gtest/gtest.h>
 
 namespace caffe2 {
@@ -104,7 +87,7 @@ namespace {
 int RunNetAndGetDuration(const string& net_def_str, const string& type) {
   NetDef net_def;
   CAFFE_ENFORCE(
-      google::protobuf::TextFormat::ParseFromString(net_def_str, &net_def));
+      TextFormat::ParseFromString(net_def_str, &net_def));
   net_def.set_type(type);
   Workspace ws;
   unique_ptr<NetBase> net(CreateNet(net_def, &ws));

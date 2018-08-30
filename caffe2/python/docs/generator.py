@@ -1,24 +1,10 @@
-# Copyright (c) 2016-present, Facebook, Inc.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-##############################################################################
-
 ## @package generator
 # Module caffe2.python.docs.generator
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+import argparse
 import os
 from caffe2.python import core, workspace
 from caffe2.python.docs.formatter import Markdown
@@ -136,6 +122,7 @@ class OperatorDoc(object):
         self.name = name
         self.schema = schema
         self.priority = priority
+        print("Gathering docs for {}...".format(self.name))
         self.engines = []
 
     def addEngines(self, engines):
@@ -166,8 +153,17 @@ class OperatorDoc(object):
             out = [(f.dump(), '')]
             for arg in args:
                 f = formatter.clone()
-                f.addCode(arg.name, inline=True)
-                out.append((f.dump(), arg.description or ''))
+                if isinstance(arg, tuple):
+                    name = arg[0]
+                    if len(arg) > 1:
+                        description = arg[1] or ''
+                    else:
+                        description = ''
+                else:
+                    name = arg.name
+                    description = arg.description or ''
+                f.addCode(name, inline=True)
+                out.append((f.dump(), description or ''))
             return out
 
         tuples = []
@@ -182,6 +178,7 @@ class OperatorDoc(object):
             tuples += makeDesc('Outputs', self.schema.output_desc)
 
         self.generateTable(formatter, tuples, None, 'Interface')
+        print("Generated interface for {}".format(self.name))
 
     def generateCodeLink(self, formatter):
         formatter.addHeader("Code", 3)
@@ -223,6 +220,12 @@ class OperatorDoc(object):
 
 
 if __name__ == "__main__":
-    ops = OpDocGenerator(Markdown(), DocUploader())
-    ops.createBody()
-    print(ops.content_body)
+    parser = argparse.ArgumentParser(description="Operators catalog generator.")
+    parser.add_argument('catalog_path', type=str,
+                        help='operators-catalogue.md to write out to')
+    args = parser.parse_args()
+
+    with open(args.catalog_path, 'w') as fp:
+        ops = OpDocGenerator(Markdown(), DocUploader())
+        ops.createBody()
+        fp.write(ops.content_body)

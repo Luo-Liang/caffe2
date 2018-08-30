@@ -1,19 +1,3 @@
-/**
- * Copyright (c) 2016-present, Facebook, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 #ifndef CAFFE2_CORE_OPERATOR_SCHEMA_H_
 #define CAFFE2_CORE_OPERATOR_SCHEMA_H_
 
@@ -23,6 +7,7 @@
 #include <ostream>
 #include <set>
 #include <vector>
+#include <unordered_map>
 
 #include "caffe2/core/common.h"
 #include "caffe2/core/logging.h"
@@ -44,7 +29,7 @@ constexpr int kCannotComputeNumOutputs = -1;
  *
  * To register an OpSchema, one can use the macro OPERATOR_SCHEMA(name) and
  * then append the various functions in the class. For example, for an op
- * that itakes in two inputs, one output, and the first input and output
+ * that takes in two inputs, one output, and the first input and output
  * could be in-place, can be written as
  *
  *     OPERATOR_SCHEMA(name)
@@ -155,11 +140,18 @@ class OpSchema {
   typedef std::function<
       vector<TensorShape>(const OperatorDef&, const vector<TensorShape>&)>
       TensorInferenceFunctionType;
+
   /**
    * @brief Sets the tensor inference function, which is a std::function object
    * defined in operator_schema.h.
    */
   OpSchema& TensorInferenceFunction(TensorInferenceFunctionType function);
+
+  /**
+   * @brief Sets the corresponding onnx schema name
+   */
+  OpSchema& InheritOnnxSchema(const std::string& onnx_schema_name);
+
   /**
    * @brief Sets the tensor inference function to produce the same output as
    * the input.
@@ -175,17 +167,18 @@ class OpSchema {
    */
   inline vector<TensorShape> InferTensor(
       const OperatorDef& def,
-      const vector<TensorShape> input_type_shape) const {
+      const vector<TensorShape>& input_type_shape) const {
     return tensor_inference_function_(def, input_type_shape);
   }
 
   /*
    * @brief A struct to store various cost information about
-   * an operator such as FLOPs and total memory use.
+   * an operator such as FLOPs, total memory use and parameters.
    */
   struct Cost {
     uint64_t flops; // Floating point operations.
     uint64_t bytes_moved; // Total memory used.
+    uint64_t params_bytes; // Memory footprint of parameters
   };
   /**
    * @brief Registers a function that takes in an OperatorDef
@@ -199,10 +192,28 @@ class OpSchema {
   /**
    * @brief Register the Cost inference function.
    */
-  OpSchema& CostInferenceFunction(CostInferenceFunctionType&& function);
+  OpSchema& CostInferenceFunction(CostInferenceFunctionType function);
+
+#if 0 // def _MSC_VER
+  /**
+   * @brief Register the Cost inference function via a pointer.
+   */
+  template <typename T,
+            typename = std::enable_if<
+                std::is_same<CostInferenceFunctionType&&, T>:value
+                >:type>
+  inline OpSchema& CostInferenceFunction(T func) {
+    // Note: This is here in order to resolve an MSVC compiler issue: it
+    // does not automatically convert a function pointer to a std::function,
+    // and needs an explicit conversion.
+    return CostInferenceFunction(CostInferenceFunctionType(func));
+  }
+#endif // _MSC_VER
+
   bool HasCostInferenceFunction() const {
     return !!cost_inference_function_;
   }
+
   inline struct Cost InferCost(
       const OperatorDef& def,
       const vector<TensorShape>& input_tensor_shape) const {
@@ -239,9 +250,9 @@ class OpSchema {
   OpSchema&
   Arg(const char* name, const char* description, bool required = false);
 
-#define DECLARE_STANDARD_ARG(name, str) \
-  static const char* Arg_##name;        \
-  OpSchema& Arg##name(const char* description);
+#define DECLARE_STANDARD_ARG(name, str)     \
+  CAFFE2_API static const char* Arg_##name; \
+  CAFFE2_API OpSchema& Arg##name(const char* description);
 
   DECLARE_STANDARD_ARG(IsTest, is_test)
 
@@ -264,6 +275,10 @@ class OpSchema {
    * number of inputs, if this schema supports it.
    */
   int CalculateOutput(int num_input) const;
+
+  const std::string& onnx_schema() const {
+    return onnx_schema_;
+  }
 
   int min_input() const {
     return min_input_;
@@ -336,6 +351,7 @@ class OpSchema {
  private:
   string file_;
   string doc_;
+  string onnx_schema_;
   std::vector<Argument> args_{};
   std::vector<std::pair<const char*, const char*>> input_desc_{};
   std::vector<std::pair<const char*, const char*>> output_desc_{};
@@ -388,8 +404,9 @@ class OpSchemaRegistry {
   static OpSchema&
   NewSchema(const string& key, const string& file, const int line) {
     auto& m = map();
-    if (m.count(key)) {
-      const auto& schema = m[key];
+    auto it = m.find(key);
+    if (it != m.end()) {
+      const auto& schema = it->second;
       std::ios_base::Init init;
       std::cerr << "Trying to register schema with name " << key
                 << " from file " << file << " line " << line
@@ -403,8 +420,9 @@ class OpSchemaRegistry {
 
   static const OpSchema* Schema(const string& key) {
     auto& m = map();
-    if (m.count(key)) {
-      return &m[key];
+    auto it = m.find(key);
+    if (it != m.end()) {
+      return &it->second;
     } else {
       return nullptr;
     }
@@ -421,7 +439,7 @@ class OpSchemaRegistry {
    * the macros defined such as OPERATOR_SCHEMA to register your operator
    * schema.
    *
-   * We wrap it inside a function to avoid the statia initialization order
+   * We wrap it inside a function to avoid the static initialization order
    * fiasco.
    */
   static CaffeMap<string, OpSchema>& map();
@@ -472,6 +490,7 @@ OpSchema::Cost PointwiseCostInference(
   }
 
   c.flops = size * OpsPerPoint;
+  c.bytes_moved = size * sizeof(X.data_type());
   return c;
 }
 

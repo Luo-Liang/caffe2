@@ -1,19 +1,3 @@
-/**
- * Copyright (c) 2016-present, Facebook, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 #ifndef CAFFE2_CORE_EVENT_H_
 #define CAFFE2_CORE_EVENT_H_
 
@@ -142,13 +126,19 @@ class Event {
   // If parent op is in another state (initialized or failed) then scheduling
   // is not possible
   bool CanSchedule(const Event& child_event, bool supports_async) const {
-    int child_type = child_event.GetType();
-    auto status = Query();
-    if (status == EventStatus::EVENT_SUCCESS) {
+    return CanSchedule(type_, Query(), child_event.GetType(), supports_async);
+  }
+
+  static bool CanSchedule(
+      int parent_type,
+      EventStatus parent_status,
+      int child_type,
+      bool child_supports_async) {
+    if (parent_status == EventStatus::EVENT_SUCCESS) {
       return true;
     }
-    if (status == EventStatus::EVENT_SCHEDULED) {
-      return (type_ == child_type) && supports_async;
+    if (parent_status == EventStatus::EVENT_SCHEDULED) {
+      return (parent_type == child_type) && child_supports_async;
     }
     return false;
   }
@@ -166,15 +156,18 @@ class Event {
   int type_;
   DeviceOption option_;
 
-  static EventCreateFunction event_creator_[MaxDeviceTypes];
-  static EventRecordFunction event_recorder_[MaxDeviceTypes];
-  static EventWaitFunction event_waiter_[MaxDeviceTypes][MaxDeviceTypes];
-  static EventFinishFunction event_finisher_[MaxDeviceTypes];
+  CAFFE2_API static EventCreateFunction event_creator_[MaxDeviceTypes];
+  CAFFE2_API static EventRecordFunction event_recorder_[MaxDeviceTypes];
+  CAFFE2_API static EventWaitFunction event_waiter_[MaxDeviceTypes]
+                                                   [MaxDeviceTypes];
+  CAFFE2_API static EventFinishFunction event_finisher_[MaxDeviceTypes];
 
-  static EventQueryFunction event_querier_[MaxDeviceTypes];
-  static EventErrorMessageFunction event_err_msg_getter_[MaxDeviceTypes];
-  static EventSetFinishedFunction event_finished_setter_[MaxDeviceTypes];
-  static EventResetFunction event_resetter_[MaxDeviceTypes];
+  CAFFE2_API static EventQueryFunction event_querier_[MaxDeviceTypes];
+  CAFFE2_API static EventErrorMessageFunction
+      event_err_msg_getter_[MaxDeviceTypes];
+  CAFFE2_API static EventSetFinishedFunction
+      event_finished_setter_[MaxDeviceTypes];
+  CAFFE2_API static EventResetFunction event_resetter_[MaxDeviceTypes];
 
   template <int d>
   friend struct EventCreateFunctionRegisterer;

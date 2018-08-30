@@ -1,19 +1,3 @@
-/**
- * Copyright (c) 2016-present, Facebook, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 #include "caffe2/operators/h_softmax_op.h"
 
 #include <queue>
@@ -478,7 +462,7 @@ bool HuffmanTreeHierarchyOp<T, Context>::RunOnDevice() {
   };
 
   // Merge two nodes and insert the results in the queue.
-  auto merge_nodes = [&nodes, &current_node_index](
+  auto merge_nodes = [&nodes](
       const std::pair<int, Node>& node_l, const std::pair<int, Node>& node_r) {
     Node node(-1, node_l.second.count + node_r.second.count);
     node.left_ch_index = node_l.first;
@@ -612,10 +596,10 @@ OPERATOR_SCHEMA(HSoftmaxSearch)
     .NumInputs(3)
     .NumOutputs(2)
     .SetDoc(R"DOC(
-  HSoftmaxSearch is an operator to generate the most possible paths given a
-  well-trained model and input vector. Greedy algorithm is used for pruning the
-  search tree.
-  )DOC")
+HSoftmaxSearch is an operator to generate the most possible paths given a
+well-trained model and input vector. Greedy algorithm is used for pruning the
+search tree.
+)DOC")
     .Arg(
         "tree",
         "Serialized TreeProto string containing a tree "
@@ -643,9 +627,9 @@ OPERATOR_SCHEMA(HuffmanTreeHierarchy)
     .NumInputs(1)
     .NumOutputs(1)
     .SetDoc(R"DOC(
-    HuffmanTreeHierarchy is an operator to generate huffman tree hierarchy given
-    the input labels. It returns the tree as seralized HierarchyProto
-    )DOC")
+HuffmanTreeHierarchy is an operator to generate huffman tree hierarchy given
+the input labels. It returns the tree as seralized HierarchyProto
+)DOC")
     .Arg("num_classes", "The number of classes used to build the hierarchy.")
     .Input(0, "Labels", "The labels vector")
     .Output(0, "Hierarch", "Huffman coding hierarchy of the labels");

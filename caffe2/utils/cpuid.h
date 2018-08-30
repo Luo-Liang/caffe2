@@ -1,19 +1,3 @@
-/**
- * Copyright (c) 2016-present, Facebook, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 #pragma once
 
 #include <cstdint>
@@ -22,11 +6,13 @@
 #include <intrin.h>
 #endif
 
+#include "caffe2/core/common.h"
+
 namespace caffe2 {
 
 class CpuId;
 
-const CpuId& GetCpuId();
+CAFFE2_API const CpuId& GetCpuId();
 
 ///////////////////////////////////////////////////////////////////////////////
 // Implementation of CpuId that is borrowed from folly.
@@ -143,15 +129,15 @@ class CpuId {
 #define E(name, bit) X(name, f7c_, bit)
   E(prefetchwt1, 0)
   E(avx512vbmi, 1)
-#undef C
+#undef E
 
 #undef X
 
  private:
-  static uint32_t f1c_;
-  static uint32_t f1d_;
-  static uint32_t f7b_;
-  static uint32_t f7c_;
+  CAFFE2_API static uint32_t f1c_;
+  CAFFE2_API static uint32_t f1d_;
+  CAFFE2_API static uint32_t f7b_;
+  CAFFE2_API static uint32_t f7c_;
 };
 
 } // namespace caffe2

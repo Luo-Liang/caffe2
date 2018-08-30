@@ -1,19 +1,3 @@
-/**
- * Copyright (c) 2016-present, Facebook, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 #include "mpscnn_graph_mask.h"
 #include "caffe2/core/operator.h"
 #include "mpscnn_context.h"
@@ -582,13 +566,8 @@ bool tryConvertToMPSCNNIntermediateCopies(const NetDef& initNet,
 #define SYSTEM_VERSION_EQUAL_TO(v) \
   ([[[UIDevice currentDevice] systemVersion] compare:v options:NSNumericSearch] == NSOrderedSame)
 
-  if (!SYSTEM_VERSION_GREATER_THAN_OR_EQUAL_TO(@"10.0")) {
-    LOG(ERROR) << "The iOS version is < 10.0, so MPSCNN is not available";
-    return false;
-  }
-
-  if (SYSTEM_VERSION_EQUAL_TO(@"10.1.1")) {
-    LOG(ERROR) << "MPSCNN doesn't work for 10.1.1";
+  if (!SYSTEM_VERSION_GREATER_THAN_OR_EQUAL_TO(@"11.0")) {
+    LOG(ERROR) << "MPSCNN is only supported for ios version above 11.0.";
     return false;
   }
 #undef SYSTEM_VERSION_GREATER_THAN_OR_EQUAL_TO

@@ -1,19 +1,3 @@
-/**
- * Copyright (c) 2016-present, Facebook, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 #include "caffe2/core/plan_executor.h"
 
 #include <condition_variable>
@@ -115,7 +99,7 @@ std::function<bool(int64_t)> getContinuationTest(
 };
 
 // if the blob doesn't exist or is not initiaized, return false
-inline const bool getShouldStop(const Blob* b) {
+inline bool getShouldStop(const Blob* b) {
   if (!b || !b->meta().id()) { // not exist or uninitialized
     return false;
   }
@@ -138,15 +122,19 @@ struct WorkspaceIdInjector {
   static const string GLOBAL_WORKSPACE_ID;
 
   void InjectWorkspaceId(Workspace* workspace) {
-    Blob* node_id_blob = workspace->GetBlob(NODE_ID);
-    if (node_id_blob) {
-      int node_id =
-          node_id_blob->template Get<TensorCPU>().template data<int32_t>()[0];
-      int64_t global_ws_id = (seq_++) + (static_cast<int64_t>(node_id) << 32);
+    if (workspace->HasBlob(NODE_ID)) {
+      Blob* node_id_blob = workspace->GetBlob(NODE_ID);
+      TensorCPU node_id_tensor = node_id_blob->template Get<TensorCPU>();
+      int node_id = node_id_tensor.template data<int32_t>()[0];
+      CAFFE_ENFORCE(
+          seq_ < (1 << 16),
+          "Integer overflow while calculating GLOBAL_WORKSPACE_ID blob");
+      int32_t global_ws_id = (seq_++) + (static_cast<int32_t>(node_id) << 16);
       Blob* global_ws_id_blob = workspace->CreateLocalBlob(GLOBAL_WORKSPACE_ID);
-      global_ws_id_blob->template GetMutable<TensorCPU>()->template Resize();
-      global_ws_id_blob->template GetMutable<TensorCPU>()
-          ->template mutable_data<int64_t>()[0] = global_ws_id;
+      TensorCPU* global_ws_id_tensor =
+          global_ws_id_blob->template GetMutable<TensorCPU>();
+      global_ws_id_tensor->Resize();
+      global_ws_id_tensor->template mutable_data<int32_t>()[0] = global_ws_id;
       VLOG(1) << "Adding " << GLOBAL_WORKSPACE_ID << " = " << global_ws_id;
     }
   }

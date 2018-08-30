@@ -1,19 +1,3 @@
-/**
- * Copyright (c) 2016-present, Facebook, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 #include "caffe2/operators/instance_norm_op.h"
 
 namespace caffe2 {
@@ -35,6 +19,10 @@ bool InstanceNormOp<T, Context>::RunOnDeviceWithOrderNHWC() {
   const int W = X.dim32(2);
   const int C = X.dim32(3);
   const size_t offset = H * W * C;
+
+  CAFFE_ENFORCE_EQ(Input(SCALE).size(), C);
+  CAFFE_ENFORCE_EQ(Input(BIAS).size(), C);
+
   Y->ResizeLike(X);
   mean->Resize(N, C);
   inv_stdev->Resize(N, C);
@@ -81,6 +69,10 @@ bool InstanceNormOp<T, Context>::RunOnDeviceWithOrderNCHW() {
   const int C = X.dim32(1);
   const int H = X.dim32(2);
   const int W = X.dim32(3);
+
+  CAFFE_ENFORCE_EQ(scale.size(), C);
+  CAFFE_ENFORCE_EQ(bias.size(), C);
+
   Y->ResizeLike(X);
   mean->Resize(N, C);
   inv_stdev->Resize(N, C);
@@ -120,11 +112,11 @@ Carries out instance normalization as described in the paper
 https://arxiv.org/abs/1607.08022. Depending on the mode it is being run,
 there are multiple cases for the number of outputs, which we list below:
 
-* Output case #1: output
-* Output case #2: output, saved_mean
-  - don't use, doesn't make sense but won't crash
-* Output case #3: output, saved_mean, saved_inv_stdev
-  - Makes sense for training only
+  * Output case #1: output
+  * Output case #2: output, saved_mean
+    - don't use, doesn't make sense but won't crash
+  * Output case #3: output, saved_mean, saved_inv_stdev
+    - Makes sense for training only
 
 For training mode, type 3 is faster in the sense that for the backward
 pass, it is able to reuse the saved mean and inv_stdev in the gradient

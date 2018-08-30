@@ -1,19 +1,3 @@
-/**
- * Copyright (c) 2016-present, Facebook, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 #include "caffe2/core/typeid.h"
 #include "caffe2/core/types.h"
 #include <gtest/gtest.h>
@@ -45,10 +29,10 @@ TEST(TypeMetaTest, TypeMetaStatic) {
 TEST(TypeMetaTest, Names) {
   TypeMeta null_meta;
   EXPECT_TRUE(string(null_meta.name()) == "nullptr (uninitialized)");
-#ifdef __GXX_RTTI
   TypeMeta int_meta = TypeMeta::Make<int>();
-  TypeMeta string_meta = TypeMeta::Make<string>();
   EXPECT_TRUE(string(int_meta.name()) == "int");
+#ifdef __GXX_RTTI
+  TypeMeta string_meta = TypeMeta::Make<string>();
   // For string, we should have a demangled name.
   EXPECT_TRUE(
       string(string_meta.name()) != typeid(string).name());
@@ -85,10 +69,14 @@ TEST(TypeMetaTest, TypeMeta) {
   EXPECT_EQ(float_meta.itemsize(), TypeMeta::ItemSize<float>());
   EXPECT_EQ(foo_meta.itemsize(), TypeMeta::ItemSize<TypeMetaTestFoo>());
   EXPECT_EQ(bar_meta.itemsize(), TypeMeta::ItemSize<TypeMetaTestBar>());
-  EXPECT_STREQ(int_meta.name(), TypeMeta::Name<int>());
-  EXPECT_STREQ(float_meta.name(), TypeMeta::Name<float>());
-  EXPECT_STREQ(foo_meta.name(), TypeMeta::Name<TypeMetaTestFoo>());
-  EXPECT_STREQ(bar_meta.name(), TypeMeta::Name<TypeMetaTestBar>());
+  EXPECT_STREQ(int_meta.name(), "int");
+  EXPECT_STREQ(float_meta.name(), "float");
+#ifdef __GXX_RTTI
+  EXPECT_NE(
+      std::string(foo_meta.name()).find("TypeMetaTestFoo"), std::string::npos);
+  EXPECT_NE(
+      std::string(bar_meta.name()).find("TypeMetaTestBar"), std::string::npos);
+#endif
 }
 
 

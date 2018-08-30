@@ -1,20 +1,4 @@
 /**
- * Copyright (c) 2016-present, Facebook, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-/**
  * @file flags.h
  * @brief Commandline flags support for Caffe2.
  *
@@ -133,21 +117,22 @@ CAFFE_DECLARE_REGISTRY(Caffe2FlagsRegistry, Caffe2FlagParser, const string&);
 // write the CAFFE2_DEFINE_* and CAFFE2_DECLARE_* macros outside any namespace
 // as well.
 
-#define CAFFE2_DEFINE_typed_var(type, name, default_value, help_str)           \
-  namespace caffe2 {                                                           \
-    type FLAGS_##name = default_value;                                         \
-    namespace {                                                                \
-      class Caffe2FlagParser_##name : public Caffe2FlagParser {                \
-       public:                                                                 \
-        explicit Caffe2FlagParser_##name(const string& content) {              \
-          success_ = Caffe2FlagParser::Parse<type>(content, &FLAGS_##name);    \
-        }                                                                      \
-      };                                                                       \
-    }                                                                          \
-    RegistererCaffe2FlagsRegistry g_Caffe2FlagsRegistry_##name(                \
-      #name, Caffe2FlagsRegistry(),                                            \
-      RegistererCaffe2FlagsRegistry::DefaultCreator<Caffe2FlagParser_##name>,  \
-      "(" #type ", default " #default_value ") " help_str);                    \
+#define CAFFE2_DEFINE_typed_var(type, name, default_value, help_str)          \
+  namespace caffe2 {                                                          \
+  CAFFE2_EXPORT type FLAGS_##name = default_value;                            \
+  namespace {                                                                 \
+  class Caffe2FlagParser_##name : public Caffe2FlagParser {                   \
+   public:                                                                    \
+    explicit Caffe2FlagParser_##name(const string& content) {                 \
+      success_ = Caffe2FlagParser::Parse<type>(content, &FLAGS_##name);       \
+    }                                                                         \
+  };                                                                          \
+  }                                                                           \
+  RegistererCaffe2FlagsRegistry g_Caffe2FlagsRegistry_##name(                 \
+      #name,                                                                  \
+      Caffe2FlagsRegistry(),                                                  \
+      RegistererCaffe2FlagsRegistry::DefaultCreator<Caffe2FlagParser_##name>, \
+      "(" #type ", default " #default_value ") " help_str);                   \
   }
 
 #define CAFFE2_DEFINE_int(name, default_value, help_str)                       \
@@ -162,10 +147,10 @@ CAFFE_DECLARE_REGISTRY(Caffe2FlagsRegistry, Caffe2FlagParser, const string&);
   CAFFE2_DEFINE_typed_var(string, name, default_value, help_str)
 
 // DECLARE_typed_var should be used in header files and in the global namespace.
-#define CAFFE2_DECLARE_typed_var(type, name)                                   \
-  namespace caffe2 {                                                           \
-    extern type FLAGS_##name;                                                  \
-  }  // namespace caffe2
+#define CAFFE2_DECLARE_typed_var(type, name) \
+  namespace caffe2 {                         \
+  CAFFE2_IMPORT extern type FLAGS_##name;    \
+  } // namespace caffe2
 
 #define CAFFE2_DECLARE_int(name) CAFFE2_DECLARE_typed_var(int, name)
 #define CAFFE2_DECLARE_int64(name) CAFFE2_DECLARE_typed_var(int64_t, name)

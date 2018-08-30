@@ -1,26 +1,8 @@
-/**
- * Copyright (c) 2016-present, Facebook, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 #include "caffe2/utils/threadpool/ThreadPool.h"
 #include "WorkersPool.h"
 #include "caffe2/core/logging.h"
 
-#if CAFFE2_ANDROID
-#include <cpu-features.h>
-#endif
+#include <cpuinfo.h>
 
 CAFFE2_DEFINE_bool(caffe2_threadpool_force_inline, false,
                    "Force to always run jobs on the calling thread");
@@ -29,9 +11,8 @@ CAFFE2_DEFINE_bool(caffe2_threadpool_force_inline, false,
 CAFFE2_DEFINE_int(caffe2_threadpool_android_cap, true, "");
 
 // Whether or not threadpool caps apply to iOS
-CAFFE2_DEFINE_int(caffe2_threadpool_ios_cap, false, "");
+CAFFE2_DEFINE_int(caffe2_threadpool_ios_cap, true, "");
 
-#if CAFFE2_THREADPOOL_MOBILE
 
 namespace caffe2 {
 
@@ -44,33 +25,21 @@ constexpr size_t kDefaultMinWorkSize = 80;
 #endif
 
 std::unique_ptr<ThreadPool> ThreadPool::defaultThreadPool() {
-  int numThreads = std::thread::hardware_concurrency();
-
-#ifdef CAFFE2_ANDROID
-  // std::thread::hardware_concurrency returns online cores
-  // (sysconf(_SC_NPROCESSORS_ONLN)), but we want the total number of CPUs. In
-  // most cases they will match, but since the threadpool is instantiated once,
-  // we want the number of threads for each device to be predictable.
-  int numCpus = android_getCpuCount();
-  LOG(INFO) << "Android cpu count: " << numCpus
-            << ", hardware_concurrency: " << numThreads;
-  numThreads = numCpus;
-#endif
+  CAFFE_ENFORCE(cpuinfo_initialize(), "cpuinfo initialization failed");
+  int numThreads = cpuinfo_get_processors_count();
 
   bool applyCap = false;
 #if CAFFE2_ANDROID
   applyCap = caffe2::FLAGS_caffe2_threadpool_android_cap;
 #elif CAFFE2_IOS
   applyCap = caffe2::FLAGS_caffe2_threadpool_ios_cap;
-#else
-#error Undefined architecture
 #endif
 
   if (applyCap) {
     switch (numThreads) {
-#if CAFFE2_ANDROID && defined(__arm__)
+#if CAFFE2_ANDROID && (CPUINFO_ARCH_ARM || CPUINFO_ARCH_ARM64)
       case 4:
-          switch (android_getCpuIdArm() & UINT32_C(0xFF00FFF0)) {
+          switch (cpuinfo_get_core(0)->midr & UINT32_C(0xFF00FFF0)) {
             case UINT32_C(0x51002110): /* Snapdragon 820 Kryo Silver */
             case UINT32_C(0x51002010): /* Snapdragon 821 Kryo Silver */
             case UINT32_C(0x51002050): /* Snapdragon 820/821 Kryo Gold */
@@ -184,6 +153,9 @@ void ThreadPool::run(const std::function<void(int, size_t)>& fn, size_t range) {
   workersPool_->Execute(tasks_);
 }
 
-} // namespace caffe2
+void ThreadPool::withPool(const std::function<void(WorkersPool*)>& f) {
+  std::lock_guard<std::mutex> guard(executionMutex_);
+  f(workersPool_.get());
+}
 
-#endif // CAFFE2_THREADPOOL_MOBILE
+} // namespace caffe2

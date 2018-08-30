@@ -1,18 +1,3 @@
-# Copyright (c) 2016-present, Facebook, Inc.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-##############################################################################
-
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -22,7 +7,7 @@ import copy
 import time
 from functools import partial, reduce
 from future.utils import viewitems, viewkeys
-from hypothesis import assume, given, settings
+from hypothesis import assume, given, settings, HealthCheck
 import hypothesis.strategies as st
 import unittest
 
@@ -180,10 +165,15 @@ class TestOperators(hu.HypothesisTestCase):
         self.assertReferenceChecks(gc, op, [X1, X2], elementwise_max)
 
     def test_add(self):
+        def not_overflow(x):
+            if not isinstance(x, float):
+                return abs(x) < (1 << 30) - 1
+            return True
+
         def ref(x, y):
             return (x + y, )
-        _test_binary("Add", ref, test_gradient=True)(self)
-        _test_binary_broadcast("Add", ref)(self)
+        _test_binary("Add", ref, filter_=not_overflow, test_gradient=True)(self)
+        _test_binary_broadcast("Add", ref, filter_=not_overflow)(self)
 
     def test_sub(self):
         def ref(x, y):
@@ -193,17 +183,22 @@ class TestOperators(hu.HypothesisTestCase):
         _test_binary_broadcast("Sub", ref)(self)
 
     def test_mul(self):
+        def not_overflow(x):
+            if not isinstance(x, float):
+                return abs(x) < (1 << 15) - 1
+            return True
+
         def ref(x, y):
             return (x * y, )
-        _test_binary("Mul", ref, test_gradient=True)(self)
-        _test_binary_broadcast("Mul", ref)(self)
+        _test_binary("Mul", ref, filter_=not_overflow, test_gradient=True)(self)
+        _test_binary_broadcast("Mul", ref, filter_=not_overflow)(self)
 
     def test_div(self):
         def ref(x, y):
             return (x / y, )
 
         def non_zero(x):
-            return abs(x) > 10e-5
+            return abs(x) > 1e-2
 
         def div_dtypes():
             return st.sampled_from([np.float32, np.float64])
@@ -451,7 +446,7 @@ class TestOperators(hu.HypothesisTestCase):
         self.assertReferenceChecks(gc, op, inputs, depth_concat_with_order)
 
     @given(X=hu.arrays(dims=[5, 2],
-                       elements=st.floats(min_value=0.0, max_value=10.0)),
+                       elements=st.floats(min_value=1.0, max_value=10.0)),
            **hu.gcs_cpu_only)
     def test_last_n_windows(self, X, gc, dc):
         workspace.FeedBlob('input', X)
@@ -1335,10 +1330,12 @@ class TestOperators(hu.HypothesisTestCase):
 
         # Create one consumer dequeue net and one consumer exist net
         consumer_net = core.Net('weight_sample_dequeue_net')
+        table_idx_blob = np.random.randint(low=-1, high=num_blobs, size=1)
         blobs = consumer_net.WeightedSampleDequeueBlobs(
             queues,
             num_blobs + 1,
-            weights=np.random.uniform(low=0.0, high=1.0, size=(num_queues,))
+            weights=np.random.uniform(low=0.0, high=1.0, size=(num_queues,)),
+            table_idx_blob=table_idx_blob[0],
         )
         status = blobs[-1]
         consumer_net.Python(append)(status)
@@ -1674,6 +1671,7 @@ class TestOperators(hu.HypothesisTestCase):
         self.assertEqual(iters.dtype, np.int64)
         self.assertEqual(iters[0], initial_iters + num_iters)
 
+
     @given(initial_iters=st.integers(0, 100),
            num_iters=st.integers(0, 100),
            num_nets=st.integers(0, 5))
@@ -1695,11 +1693,22 @@ class TestOperators(hu.HypothesisTestCase):
         plan = core.Plan("plan")
         plan.AddStep(concurrent_steps)
 
+        stats_net = core.Net("stats_net")
+        stats_net.StatRegistryExport([], ["stats_key", "stats_val", "stats_ts"])
+
         self.ws.run(init_net)
         self.ws.run(plan)
+        self.ws.run(stats_net)
         iters = self.ws.blobs[("iter")].fetch()
         self.assertEqual(iters.dtype, np.int64)
         self.assertEqual(iters[0], initial_iters + num_iters * num_nets)
+
+        if num_iters * num_nets > 0:
+            stats_key = self.ws.blobs[("stats_key")].fetch()
+            self.assertEqual(b'atomic_iter/stats/iter/num_iter', stats_key[0])
+            stat_val = self.ws.blobs[("stats_val")].fetch()
+            self.assertEqual(num_iters * num_nets, stat_val[0])
+
 
     @given(a=hu.tensor(),
            src=st.sampled_from(list(viewkeys(_NUMPY_TYPE_TO_ENUM))),
@@ -1754,7 +1763,7 @@ class TestOperators(hu.HypothesisTestCase):
 
     @given(a=hu.tensor(elements=st.floats(allow_nan=True)),
            value=st.floats(min_value=-10, max_value=10),
-           **hu.gcs_cpu_only)
+           **hu.gcs)
     def test_replace_nan(self, a, value, gc, dc):
         def ref(data):
             out = np.copy(data)
@@ -1928,6 +1937,7 @@ class TestOperators(hu.HypothesisTestCase):
                 param,
                 [0])
 
+    @settings(suppress_health_check=[HealthCheck.filter_too_much])
     @given(n=st.integers(1, 5),
            c=st.integers(1, 5),
            h=st.integers(1, 5),
@@ -1944,6 +1954,7 @@ class TestOperators(hu.HypothesisTestCase):
         self.assertDeviceChecks(dc, op, [X], [0])
         self.assertGradientChecks(gc, op, [X], 0, [0])
 
+    @settings(suppress_health_check=[HealthCheck.filter_too_much])
     @given(n=st.integers(1, 5),
            c=st.integers(1, 5),
            h=st.integers(1, 5),

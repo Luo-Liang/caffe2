@@ -1,31 +1,9 @@
-/**
- * Copyright (c) 2016-present, Facebook, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 #ifndef CAFFE2_UTILS_THREADPOOL_H_
 #define CAFFE2_UTILS_THREADPOOL_H_
 
 #include "ThreadPoolCommon.h"
 
-#ifndef CAFFE2_THREADPOOL_MOBILE
-#error "mobile build state not defined"
-#endif
-
-// ThreadPool only used in mobile builds at the moment
-#if CAFFE2_THREADPOOL_MOBILE
-
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <vector>
@@ -36,15 +14,19 @@
 
 namespace caffe2 {
 
-class Task;
+struct Task;
 class WorkersPool;
 
 constexpr size_t kCacheLineSize = 64;
 
+// A work-stealing threadpool with the given number of threads.
+// NOTE: the kCacheLineSize alignment is present only for cache
+// performance, and is not strictly enforced (for example, when
+// the object is created on the heap). Thus, in order to avoid
+// misaligned intrinsics, no SSE instructions shall be involved in
+// the ThreadPool implemetation.
 class alignas(kCacheLineSize) ThreadPool {
  public:
-  // Constructs a work-stealing threadpool with the given number of
-  // threads
   static std::unique_ptr<ThreadPool> defaultThreadPool();
   ThreadPool(int numThreads);
   ~ThreadPool();
@@ -58,7 +40,11 @@ class alignas(kCacheLineSize) ThreadPool {
   size_t getMinWorkSize() const { return minWorkSize_; }
   void run(const std::function<void(int, size_t)>& fn, size_t range);
 
-private:
+  // Run an arbitrary function in a thread-safe manner accessing the Workers
+  // Pool
+  void withPool(const std::function<void(WorkersPool*)>& fn);
+
+ private:
   mutable std::mutex executionMutex_;
   size_t minWorkSize_;
   size_t numThreads_;
@@ -67,7 +53,5 @@ private:
 };
 
 } // namespace caffe2
-
-#endif // CAFFE2_THREADPOOL_MOBILE
 
 #endif // CAFFE2_UTILS_THREADPOOL_H_

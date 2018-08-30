@@ -1,19 +1,3 @@
-/**
- * Copyright (c) 2016-present, Facebook, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 #include "caffe2/core/net_dag_utils.h"
 
 #include <set>
@@ -193,16 +177,15 @@ ExecutionChains computeChains(std::vector<OperatorNode>& orig_nodes) {
              // operator and passing the same stream id on each call.
              // RunAsync may schedule an async computation on device.
              // In order to be scheduled on the same chain two operators
-             // (parent and dependent) need to satisfy one of:
-             //  1. Parent op does not have an async part
-             //  2. Parent op has async part _and_
-             //     both ops are on the same device _and_
+             // (parent and dependent) need to satisfy:
+             //  1. Both ops are on the same device _and_
+             //  2. Parent op does not have an async part or
              //     dependent op can be executed as an async dependency
 
-             !orig_nodes[chain.back()].operator_->HasAsyncPart() ||
-             (IsSameDevice(
-                  orig_nodes[cur.first].operator_->device_option(),
-                  orig_nodes[chain.back()].operator_->device_option()) &&
+             IsSameDevice(
+                 orig_nodes[cur.first].operator_->device_option(),
+                 orig_nodes[chain.back()].operator_->device_option()) &&
+             (!orig_nodes[chain.back()].operator_->HasAsyncPart() ||
               orig_nodes[cur.first].operator_->SupportsAsyncScheduling()))));
   };
   auto commit_chain = [&]() {
