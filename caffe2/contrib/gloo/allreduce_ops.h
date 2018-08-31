@@ -120,7 +120,6 @@ class AllreduceOp final : public Operator<Context> {
         initializeHalvingDoubling();
         return;
       case PHUB:
-        std::cout<<algo<<" Selected. " << std::endl;
         initializePHub();
         return;
     }
