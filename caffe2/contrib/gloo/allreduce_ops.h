@@ -65,7 +65,6 @@ class AllreduceOp final : public Operator<Context> {
     Mode mode = HALVING_DOUBLING;
     if(algo != NULL)
     {
-      std::cout<<algo<<" Selected. " << std::endl;
       if(strcmp(algo, "RING_FULL") == 0)
       {
         mode = RING_FULL;
@@ -121,7 +120,9 @@ class AllreduceOp final : public Operator<Context> {
         initializeHalvingDoubling();
         return;
       case PHUB:
+        std::cout<<algo<<" Selected. " << std::endl;
         initializePHub();
+        return;
     }
 
     CAFFE_ENFORCE(false, "Unreachable code");
