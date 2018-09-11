@@ -123,7 +123,6 @@ class AllreduceOp final : public Operator<Context> {
         initializePHub();
         return;
     }
-
     CAFFE_ENFORCE(false, "Unreachable code");
   }
 
