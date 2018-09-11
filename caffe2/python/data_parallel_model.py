@@ -14,6 +14,7 @@ from caffe2.python import \
 from caffe2.proto import caffe2_pb2
 
 import numpy as np
+import os
 
 dyndep.InitOpsLibrary("@/caffe2/caffe2/contrib/nccl:nccl_ops")
 dyndep.InitOpsLibrary("@/caffe2/caffe2/contrib/gloo:gloo_ops")
@@ -106,6 +107,14 @@ def Parallelize(
                         normalization will be done separately for each device.
                         This option is currently only supported on the CPU.
     '''
+    
+
+    if "Caffe2AlgorithmConcurrency" in os.environ:
+        max_concurrent_distributed_ops = int(os.environ["Caffe2AlgorithmConcurrency"])
+        pass
+    
+    log.info("max_concurrent_distributed_ops = %d" % max_concurrent_distributed_ops)
+
     assert scope.CurrentDeviceScope() is None \
         or scope.CurrentDeviceScope().device_type == caffe2_pb2.CPU, \
         "Parallelize must be called without device-scope, \
