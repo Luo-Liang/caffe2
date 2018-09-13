@@ -1737,7 +1737,7 @@ def _CreateOrCloneCommonWorld(
     if name is None:
         name = "{}_op".format(common_world_blob)
 
-    if existing is not None:
+    if existing is not None and "GLOO_ALGORITHM" in os.environ and os.environ["GLOO_ALGORITHM"] != "PHUB":
         comm_world = net.CloneCommonWorld(
             [existing],
             common_world_blob,
