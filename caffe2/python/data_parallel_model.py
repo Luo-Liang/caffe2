@@ -15,6 +15,7 @@ from caffe2.proto import caffe2_pb2
 
 import numpy as np
 import os
+import redis
 
 dyndep.InitOpsLibrary("@/caffe2/caffe2/contrib/nccl:nccl_ops")
 dyndep.InitOpsLibrary("@/caffe2/caffe2/contrib/gloo:gloo_ops")
@@ -1277,6 +1278,18 @@ def _AllReduceBlobsDistributed(
 
     nccl_control_blob = None
 
+    if "GLOO_ALGORITHM" in os.environ and os.environ["GLOO_ALGORITHM"] == "PHUB":
+        #i need to communicate to PHub about the elements that need aggregation,
+        #as well as their sizes.
+        #at this stage, all i need is the name of keys and my key ID.
+        phubKeyNames = ["allreduce_{}_status".format(x) for x in blob_names]
+        if rendezvous["shard_id"] == 0:
+            #only id 0 needs to send to rendezvous.
+            r = redis.StrictRedis()
+            #foreach key, I need to assign an ID
+            joinedStr = phubKeyNames.join(",")
+            r.set("[PLink]IntegrationKeys", joinedStr)
+    
     for blob_name in blob_names:
         master_blob = model._device_grouped_blobs[blob_name][devices[0]]
         blobs_group = list(viewvalues(model._device_grouped_blobs[blob_name]))
