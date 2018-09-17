@@ -90,7 +90,7 @@ void AllreduceOp<Context>::initializePHub() {
         init_.size,
         init_.context->size,
         init_.context->rank);
-    algorithm_ = initializePHubCore<::gloo::CudaAllreducePHub, float>(
+    algorithm_ = initializePHubCore(
         gpu_direct_,
         init_.context,
         init_.template getOutputs<float>(),
