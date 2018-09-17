@@ -1287,7 +1287,7 @@ def _AllReduceBlobsDistributed(
             #only id 0 needs to send to rendezvous.
             r = redis.StrictRedis()
             #foreach key, I need to assign an ID
-            joinedStr = phubKeyNames.join(",")
+            joinedStr = ",".join(phubKeyNames)
             r.set("[PLink]IntegrationKeys", joinedStr)
     
     for blob_name in blob_names:
