@@ -13,6 +13,8 @@
 #include <cassert>
 #include <iostream>
 
+#include <PHub/Integration.h>
+
 namespace caffe2 {
 namespace gloo {
 
@@ -33,6 +35,8 @@ class AllreduceOp final : public Operator<Context> {
     if (status_blob_ != "") {
       ws_->CreateBlob(status_blob_);
     }
+    CHECK(status_blob_ != "");
+    //build phub incrementally 
   }
 
   virtual ~AllreduceOp() {}
