@@ -9,8 +9,8 @@
 #include <gloo/algorithm.h>
 #include <gloo/common/error.h>
 #include <gloo/context.h>
-#include <cstdlib>
 #include <cassert>
+#include <cstdlib>
 #include <iostream>
 
 #include <PHub/Integration.h>
@@ -36,7 +36,16 @@ class AllreduceOp final : public Operator<Context> {
       ws_->CreateBlob(status_blob_);
     }
     CHECK(status_blob_ != "");
-    //build phub incrementally 
+    // build phub incrementally
+    const char* algo = std::getenv("GLOO_ALGORITHM");
+    if (algo != NULL && strcmp(algo, "PHUB") == 0) {
+      caffe2BuildPHubInstance(
+          status_blob_,
+          init_.template getOutputs<float>().at(0),
+          init_.size,
+          init_.context->size,
+          init_.context->rank);
+    }
   }
 
   virtual ~AllreduceOp() {}
@@ -67,26 +76,16 @@ class AllreduceOp final : public Operator<Context> {
   void initialize() {
     const char* algo = std::getenv("GLOO_ALGORITHM");
     Mode mode = HALVING_DOUBLING;
-    if(algo != NULL)
-    {
-      if(strcmp(algo, "RING_FULL") == 0)
-      {
+    if (algo != NULL) {
+      if (strcmp(algo, "RING_FULL") == 0) {
         mode = RING_FULL;
-      }
-      else if(strcmp(algo, "RING_CHUNKED") == 0)
-      {
+      } else if (strcmp(algo, "RING_CHUNKED") == 0) {
         mode = RING_CHUNKED;
-      }
-      else if(strcmp(algo, "HALVING_DOUBLING") == 0)
-      {
+      } else if (strcmp(algo, "HALVING_DOUBLING") == 0) {
         mode = HALVING_DOUBLING;
-      }
-      else if(strcmp(algo, "PHUB") == 0)
-      {
+      } else if (strcmp(algo, "PHUB") == 0) {
         mode = PHUB;
-      }
-      else
-      {
+      } else {
         assert(false);
       }
     }
@@ -134,7 +133,6 @@ class AllreduceOp final : public Operator<Context> {
   void initializeRingFull();
   void initializeRingChunked();
   void initializePHub();
-
 
   std::once_flag once_;
   std::unique_ptr<::gloo::Algorithm> algorithm_;

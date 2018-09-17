@@ -63,13 +63,6 @@ void AllreduceOp<Context>::initializeHalvingDoubling() {
 template <class Context>
 void AllreduceOp<Context>::initializePHub() {
   if (init_.template IsType<float>()) {
-    auto ptr = init_.template getOutputs<float>().at(0);
-    caffe2BuildPHubInstance(
-        status_blob_,
-        ptr,
-        init_.size,
-        init_.context->size,
-        init_.context->rank);
     algorithm_ = initializeAlgorithm<::gloo::CudaAllreducePHub, float>(
         gpu_direct_,
         init_.context,
