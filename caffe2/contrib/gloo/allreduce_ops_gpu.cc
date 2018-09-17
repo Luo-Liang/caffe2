@@ -63,12 +63,19 @@ void AllreduceOp<Context>::initializeHalvingDoubling() {
 template <class Context>
 void AllreduceOp<Context>::initializePHub() {
   if (init_.template IsType<float>()) {
+    caffe2BuildPHubInstance(
+        status_blob_,
+        init_.template getOutputs<float>().at(0),
+        init_.size,
+        init_.context->size,
+        init_.context->rank);
     algorithm_ = initializeAlgorithm<::gloo::CudaAllreducePHub, float>(
         gpu_direct_,
         init_.context,
         init_.template getOutputs<float>(),
         init_.size);
-    ((::gloo::CudaAllreducePHub<float>*)algorithm_.get())->UseStandAlonePHub = false;
+    ((::gloo::CudaAllreducePHub<float>*)algorithm_.get())->UseStandAlonePHub =
+        false;
   } else {
     CAFFE_ENFORCE(false, "Unhandled type: ", init_.meta.name());
   }

@@ -1269,6 +1269,20 @@ def _AllReduceBlobsDistributed(
 
     reducing_device_opt = master_device_opt
 
+   
+    if "GLOO_ALGORITHM" in os.environ and os.environ["GLOO_ALGORITHM"] == "PHUB":
+        #i need to communicate to PHub about the elements that need aggregation,
+        #as well as their sizes.
+        #at this stage, all i need is the name of keys and my key ID.
+        phubKeyNames = ["allreduce_{}_status".format(x) for x in blob_names]
+        max_concurrent_distributed_ops = sys.maxsize
+        if rendezvous["shard_id"] == 0:
+            #only id 0 needs to send to rendezvous.
+            r = redis.StrictRedis()
+            #foreach key, I need to assign an ID
+            joinedStr = ",".join(phubKeyNames)
+            r.set("[PLink]IntegrationKeys", joinedStr)
+    
     context = CollectivesConcurrencyControl(
         "allreduce",
         max_concurrent_distributed_ops,
@@ -1278,18 +1292,6 @@ def _AllReduceBlobsDistributed(
 
     nccl_control_blob = None
 
-    if "GLOO_ALGORITHM" in os.environ and os.environ["GLOO_ALGORITHM"] == "PHUB":
-        #i need to communicate to PHub about the elements that need aggregation,
-        #as well as their sizes.
-        #at this stage, all i need is the name of keys and my key ID.
-        phubKeyNames = ["allreduce_{}_status".format(x) for x in blob_names]
-        if rendezvous["shard_id"] == 0:
-            #only id 0 needs to send to rendezvous.
-            r = redis.StrictRedis()
-            #foreach key, I need to assign an ID
-            joinedStr = ",".join(phubKeyNames)
-            r.set("[PLink]IntegrationKeys", joinedStr)
-    
     for blob_name in blob_names:
         master_blob = model._device_grouped_blobs[blob_name][devices[0]]
         blobs_group = list(viewvalues(model._device_grouped_blobs[blob_name]))

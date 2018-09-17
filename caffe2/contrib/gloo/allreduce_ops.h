@@ -37,15 +37,10 @@ class AllreduceOp final : public Operator<Context> {
     }
     CHECK(status_blob_ != "");
     // build phub incrementally
-    const char* algo = std::getenv("GLOO_ALGORITHM");
-    if (algo != NULL && strcmp(algo, "PHUB") == 0) {
-      caffe2BuildPHubInstance(
-          status_blob_,
-          init_.template getOutputs<float>().at(0),
-          init_.size,
-          init_.context->size,
-          init_.context->rank);
-    }
+    // const char* algo = std::getenv("GLOO_ALGORITHM");
+    // if (algo != NULL && strcmp(algo, "PHUB") == 0) {
+     
+    // }
   }
 
   virtual ~AllreduceOp() {}
