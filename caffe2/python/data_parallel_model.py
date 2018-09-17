@@ -15,6 +15,7 @@ from caffe2.proto import caffe2_pb2
 
 import numpy as np
 import os
+import sys
 import redis
 
 dyndep.InitOpsLibrary("@/caffe2/caffe2/contrib/nccl:nccl_ops")
