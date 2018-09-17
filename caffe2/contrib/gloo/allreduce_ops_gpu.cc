@@ -35,16 +35,17 @@ std::unique_ptr<::gloo::Algorithm> initializeAlgorithm(
       new A<T, ::gloo::CudaHostWorkspace<T>>(context, ptrs, size));
 }
 
-template <template <typename T, typename W> class A, typename T>
 std::unique_ptr<::gloo::Algorithm> initializePHubCore(
     bool gpu_direct_,
     std::shared_ptr<::gloo::Context> context,
-    std::vector<T*> ptrs,
+    std::vector<float*> ptrs,
     size_t size) {
   if (gpu_direct_) {
     if (context->getDevice()->hasGPUDirect()) {
       return std::unique_ptr<::gloo::Algorithm>(
-          new A<T, ::gloo::CudaDeviceWorkspace<T>>(context, ptrs, size, false));
+          new ::gloo::
+              CudaAllreducePHub<float, ::gloo::CudaDeviceWorkspace<float>>(
+                  context, ptrs, size, std::vector<cudaStream_t>(), false));
     } else {
       LOG(WARNING)
           << "GPUDirect not available; "
@@ -52,7 +53,8 @@ std::unique_ptr<::gloo::Algorithm> initializePHubCore(
     }
   }
   return std::unique_ptr<::gloo::Algorithm>(
-      new A<T, ::gloo::CudaHostWorkspace<T>>(context, ptrs, size, false));
+      new ::gloo::CudaAllreducePHub<float, ::gloo::CudaHostWorkspace<float>>(
+          context, ptrs, size, std::vector<cudaStream_t>(), false));
 }
 
 } // namespace
@@ -93,8 +95,6 @@ void AllreduceOp<Context>::initializePHub() {
         init_.context,
         init_.template getOutputs<float>(),
         init_.size);
-    ((::gloo::CudaAllreducePHub<float>*)algorithm_.get())->UseStandAlonePHub =
-        false;
   } else {
     CAFFE_ENFORCE(false, "Unhandled type: ", init_.meta.name());
   }
