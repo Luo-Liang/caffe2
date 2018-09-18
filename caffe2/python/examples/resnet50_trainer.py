@@ -471,7 +471,7 @@ def Train(args):
             joinedStr = ",".join(phubKeyNames)
             r.set("[PLink]IntegrationKeys", joinedStr)
             joinedStr = ",".join(phubKeySizes)
-            r.set("[PLink]IntegrationKeySizes", phubKeySizes)
+            r.set("[PLink]IntegrationKeySizes", joinedStr)
 
 
     # Add test model, if specified
