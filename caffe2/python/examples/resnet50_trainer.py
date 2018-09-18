@@ -463,7 +463,7 @@ def Train(args):
         grad_names = list(reversed(train_model._grad_names))
         phubKeyNames = ["allreduce_{}_status".format(x) for x in grad_names]
         caffe2GradSizes = dict(zip([data_parallel_model.stripBlobName(name) + "_grad" for name in train_model._parameters_info.keys()], [x.size for x in train_model._parameters_info.values()]))
-        phubKeySizes = [caffe2GradSizes[x] for x in grad_names]
+        phubKeySizes = [str(caffe2GradSizes[x]) for x in grad_names]
         if rendezvous["shard_id"] == 0:
             #only id 0 needs to send to rendezvous.
             r = redis.StrictRedis()
