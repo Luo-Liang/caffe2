@@ -35,28 +35,6 @@ std::unique_ptr<::gloo::Algorithm> initializeAlgorithm(
       new A<T, ::gloo::CudaHostWorkspace<T>>(context, ptrs, size));
 }
 
-std::unique_ptr<::gloo::Algorithm> initializePHubCore(
-    bool gpu_direct_,
-    std::shared_ptr<::gloo::Context> context,
-    std::vector<float*> ptrs,
-    size_t size) {
-  if (gpu_direct_) {
-    if (context->getDevice()->hasGPUDirect()) {
-      return std::unique_ptr<::gloo::Algorithm>(
-          new ::gloo::
-              CudaAllreducePHub<float, ::gloo::CudaDeviceWorkspace<float>>(
-                  context, ptrs, size, std::vector<cudaStream_t>(), false));
-    } else {
-      LOG(WARNING)
-          << "GPUDirect not available; "
-          << "Gloo communication will go through system memory instead.";
-    }
-  }
-  return std::unique_ptr<::gloo::Algorithm>(
-      new ::gloo::CudaAllreducePHub<float, ::gloo::CudaHostWorkspace<float>>(
-          context, ptrs, size, std::vector<cudaStream_t>(), false));
-}
-
 } // namespace
 
 template <class Context>
