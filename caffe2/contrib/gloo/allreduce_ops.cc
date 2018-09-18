@@ -45,11 +45,10 @@ void AllreduceOp<Context>::initializePHub() {
     caffe2BuildPHubInstance(
         status_blob_,
         init_.template getOutputs<float>().at(0),
-        init_.size,
         init_.context->size,
         init_.context->rank);
     algorithm_.reset(new ::gloo::AllReducePHub<float>(
-        init_.context, init_.template getOutputs<float>(), init_.size, ::gloo::ReductionFunction<float>::sum, false));
+        init_.context, init_.template getOutputs<float>(), init_.size));
     //((::gloo::AllReducePHub<float>*)algorithm_.get())->UseStandAlonePHub =
     //    false;
   } else {

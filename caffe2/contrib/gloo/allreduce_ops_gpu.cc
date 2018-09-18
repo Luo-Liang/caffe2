@@ -87,14 +87,20 @@ void AllreduceOp<Context>::initializePHub() {
     caffe2BuildPHubInstance(
         status_blob_,
         init_.template getOutputs<float>().at(0),
-        init_.size,
         init_.context->size,
         init_.context->rank);
-    algorithm_ = initializePHubCore(
+    algorithm_ = initializeAlgorithm<
+        ::gloo::CudaAllreducePHub,
+        ::gloo::float>(
         gpu_direct_,
         init_.context,
-        init_.template getOutputs<float>(),
+        init_.template getOutputs<::gloo::float16>(),
         init_.size);
+    // algorithm_ = initializePHubCore(
+    //     gpu_direct_,
+    //     init_.context,
+    //     init_.template getOutputs<float>(),
+    //     init_.size);
   } else {
     CAFFE_ENFORCE(false, "Unhandled type: ", init_.meta.name());
   }

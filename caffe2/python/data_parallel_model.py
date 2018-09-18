@@ -1276,6 +1276,7 @@ def _AllReduceBlobsDistributed(
         #as well as their sizes.
         #at this stage, all i need is the name of keys and my key ID.
         phubKeyNames = ["allreduce_{}_status".format(x) for x in blob_names]
+        phubKeySizes = [model._parameters_info[x].size for x in blob_names]
         max_concurrent_distributed_ops = sys.maxsize
         if rendezvous["shard_id"] == 0:
             #only id 0 needs to send to rendezvous.
@@ -1283,6 +1284,8 @@ def _AllReduceBlobsDistributed(
             #foreach key, I need to assign an ID
             joinedStr = ",".join(phubKeyNames)
             r.set("[PLink]IntegrationKeys", joinedStr)
+            joinedStr = ",".join(phubKeySizes)
+            r.set("[PLink]IntegrationKeySizes", phubKeySizes)
     
     context = CollectivesConcurrencyControl(
         "allreduce",
