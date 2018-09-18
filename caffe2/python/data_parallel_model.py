@@ -248,8 +248,7 @@ def Parallelize(
 
     # Group gradients by device and register to blob lookup
     param_to_grad = model_helper_obj.param_to_grad
-    grads_ordered = [param_to_grad[p] for p in
-                     model_helper_obj.params if p in param_to_grad]
+    grads_ordered = [param_to_grad[p] for p in model_helper_obj.params if p in param_to_grad]
     non_datapar_grads = [param_to_grad[p] for p in non_datapar_params]
 
     gradients_grouped = _GroupByDevice(
@@ -1272,20 +1271,8 @@ def _AllReduceBlobsDistributed(
 
    
     if "GLOO_ALGORITHM" in os.environ and os.environ["GLOO_ALGORITHM"] == "PHUB":
-        #i need to communicate to PHub about the elements that need aggregation,
-        #as well as their sizes.
-        #at this stage, all i need is the name of keys and my key ID.
-        phubKeyNames = ["allreduce_{}_status".format(x) for x in blob_names]
-        phubKeySizes = [model._parameters_info[x].size for x in blob_names]
         max_concurrent_distributed_ops = sys.maxsize
-        if rendezvous["shard_id"] == 0:
-            #only id 0 needs to send to rendezvous.
-            r = redis.StrictRedis()
-            #foreach key, I need to assign an ID
-            joinedStr = ",".join(phubKeyNames)
-            r.set("[PLink]IntegrationKeys", joinedStr)
-            joinedStr = ",".join(phubKeySizes)
-            r.set("[PLink]IntegrationKeySizes", phubKeySizes)
+        log.info("PHUB:: setting max_concurrent_distributed_ops to inf")
     
     context = CollectivesConcurrencyControl(
         "allreduce",
@@ -1756,7 +1743,8 @@ def _CreateOrCloneCommonWorld(
     if name is None:
         name = "{}_op".format(common_world_blob)
 
-    if existing is not None and "GLOO_ALGORITHM" in os.environ and os.environ["GLOO_ALGORITHM"] != "PHUB":
+    if existing is not None:
+        #and "GLOO_ALGORITHM" in os.environ and os.environ["GLOO_ALGORITHM"] != "PHUB":
         comm_world = net.CloneCommonWorld(
             [existing],
             common_world_blob,

@@ -20,6 +20,7 @@ from caffe2.python.modeling.initializers import Initializer, PseudoFP16Initializ
 import caffe2.python.predictor.predictor_exporter as pred_exp
 import caffe2.python.predictor.predictor_py_utils as pred_utils
 from caffe2.python.predictor_constants import predictor_constants as predictor_constants
+import redis
 
 '''
 Parallelized multi-GPU distributed trainer for Resnet 50. Can be used to train
@@ -454,6 +455,24 @@ def Train(args):
 
     workspace.RunNetOnce(train_model.param_init_net)
     workspace.CreateNet(train_model.net)
+
+    if "GLOO_ALGORITHM" in os.environ and os.environ["GLOO_ALGORITHM"] == "PHUB":
+        #i need to communicate to PHub about the elements that need aggregation,
+        #as well as their sizes.
+        #at this stage, all i need is the name of keys and my key ID.
+        grad_names = list(reversed(train_model._grad_names))
+        phubKeyNames = ["allreduce_{}_status".format(x) for x in grad_names]
+        caffe2GradSizes = dict(zip([data_parallel_model.stripBlobName(name) + "_grad" for name in train_model._parameters_info.keys()], [x.size for x in train_model._parameters_info.values()]))
+        phubKeySizes = [caffe2GradSizes[x] for x in grad_names]
+        if rendezvous["shard_id"] == 0:
+            #only id 0 needs to send to rendezvous.
+            r = redis.StrictRedis()
+            #foreach key, I need to assign an ID
+            joinedStr = ",".join(phubKeyNames)
+            r.set("[PLink]IntegrationKeys", joinedStr)
+            joinedStr = ",".join(phubKeySizes)
+            r.set("[PLink]IntegrationKeySizes", phubKeySizes)
+
 
     # Add test model, if specified
     test_model = None
