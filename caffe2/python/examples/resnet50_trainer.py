@@ -171,7 +171,7 @@ def RunEpoch(
     for i in range(epoch_iters):
         # This timeout is required (temporarily) since CUDA-NCCL
         # operators might deadlock when synchronizing between GPUs.
-        timeout = 600.0 if i == 0 else 60.0
+        timeout = 3600 #3600.0 if i == 0 else 60.0
         with timeout_guard.CompleteInTimeOrDie(timeout):
             t1 = time.time()
             workspace.RunNet(train_model.net.Proto().name)
