@@ -1270,9 +1270,9 @@ def _AllReduceBlobsDistributed(
     reducing_device_opt = master_device_opt
 
    
-    if "GLOO_ALGORITHM" in os.environ and os.environ["GLOO_ALGORITHM"] == "PHUB":
-        max_concurrent_distributed_ops = sys.maxsize
-        log.info("PHUB:: setting max_concurrent_distributed_ops to inf")
+    # if "GLOO_ALGORITHM" in os.environ and os.environ["GLOO_ALGORITHM"] == "PHUB":
+    #     max_concurrent_distributed_ops = sys.maxsize
+    #     log.info("PHUB:: setting max_concurrent_distributed_ops to inf")
     
     context = CollectivesConcurrencyControl(
         "allreduce",
