@@ -1,4 +1,4 @@
-## @package data_parallel_model
+# @package data_parallel_model
 # Module caffe2.python.data_parallel_model
 from __future__ import absolute_import
 from __future__ import division
@@ -109,13 +109,6 @@ def Parallelize(
                         normalization will be done separately for each device.
                         This option is currently only supported on the CPU.
     '''
-    
-
-    if "Caffe2AlgorithmConcurrency" in os.environ:
-        max_concurrent_distributed_ops = int(os.environ["Caffe2AlgorithmConcurrency"])
-        pass
-    
-    log.info("max_concurrent_distributed_ops = %d" % max_concurrent_distributed_ops)
 
     assert scope.CurrentDeviceScope() is None \
         or scope.CurrentDeviceScope().device_type == caffe2_pb2.CPU, \
@@ -248,7 +241,8 @@ def Parallelize(
 
     # Group gradients by device and register to blob lookup
     param_to_grad = model_helper_obj.param_to_grad
-    grads_ordered = [param_to_grad[p] for p in model_helper_obj.params if p in param_to_grad]
+    grads_ordered = [param_to_grad[p]
+                     for p in model_helper_obj.params if p in param_to_grad]
     non_datapar_grads = [param_to_grad[p] for p in non_datapar_params]
 
     gradients_grouped = _GroupByDevice(
@@ -265,7 +259,8 @@ def Parallelize(
 
     log.info("Add gradient all-reduces for SyncSGD")
     if broadcast_computed_params:
-        _BroadcastComputedParams(devices, model_helper_obj, rendezvous, use_nccl)
+        _BroadcastComputedParams(
+            devices, model_helper_obj, rendezvous, use_nccl)
 
     if len(model_helper_obj._grad_names) > 0:
         # Gradients in reverse order
@@ -292,7 +287,8 @@ def Parallelize(
 
     if param_update_builder_fun is not None:
         for device in devices:
-            device_opt = core.DeviceOption(model_helper_obj._device_type, device)
+            device_opt = core.DeviceOption(
+                model_helper_obj._device_type, device)
             with core.DeviceScope(device_opt):
                 with core.NameScope(
                     "{}_{}".format(model_helper_obj._device_prefix, device)
@@ -337,7 +333,8 @@ def Parallelize(
     # i.e. making sure multi-precision copies of parameters are up-to-date
     if post_sync_builder_fun is not None:
         for device in devices:
-            device_opt = core.DeviceOption(model_helper_obj._device_type, device)
+            device_opt = core.DeviceOption(
+                model_helper_obj._device_type, device)
             with core.DeviceScope(device_opt):
                 with core.NameScope(
                     "{}_{}".format(model_helper_obj._device_prefix, device)
@@ -431,7 +428,8 @@ def Parallelize_BMUF(
     model_helper_obj._rendezvous = rendezvous
     model_helper_obj._broadcast_context = None
     model_helper_obj._shared_model = False
-    master_dev_opt = core.DeviceOption(model_helper_obj._device_type, master_device)
+    master_dev_opt = core.DeviceOption(
+        model_helper_obj._device_type, master_device)
 
     # question: rendezvous structure
     num_shards = rendezvous['num_shards'] if rendezvous else 1
@@ -529,7 +527,7 @@ def Parallelize_BMUF(
         model_helper_obj._warmup_broadcast = core.Net('warmup-broadcast')
         model_helper_obj._warmup_broadcast.Proto().type = net_type
         model_helper_obj._warmup_broadcast.Proto().num_workers = \
-           num_workers
+            num_workers
 
         _SyncAllParams(
             devices,
@@ -619,7 +617,6 @@ def Parallelize_BMUF(
             model_helper_obj._global_model_param_updates_net.Copy(
                 _g(param), param
             )
-
 
     _SyncAllParams(
         devices,
@@ -914,7 +911,8 @@ def _Broadcast(devices, model, net, param, use_nccl=False):
 
     if use_nccl:
         if _IsGPUBlob(model, param):
-            master_device_opt = core.DeviceOption(model._device_type, master_dev)
+            master_device_opt = core.DeviceOption(
+                model._device_type, master_dev)
             with core.DeviceScope(master_device_opt):
                 # Note that the root is the root _rank_ and not the root
                 # _device_. Thus we always use root=0, regardless of the
@@ -1098,7 +1096,8 @@ def _SyncAllParamsDistributed(
 
     for param_name in sorted(unique_param_names):
         master_param = model._device_grouped_blobs[param_name][devices[0]]
-        params_group = list(viewvalues(model._device_grouped_blobs[param_name]))
+        params_group = list(viewvalues(
+            model._device_grouped_blobs[param_name]))
 
         def broadcast(params):
             comm_world, control_input = context.get_control_and_context(params)
@@ -1215,6 +1214,7 @@ class CollectivesConcurrencyControl(object):
     sequential execution of collectives that shares the same context with
     cyclic control inputs.
     """
+
     def __init__(
         self,
         name,
@@ -1269,11 +1269,17 @@ def _AllReduceBlobsDistributed(
 
     reducing_device_opt = master_device_opt
 
-   
     # if "GLOO_ALGORITHM" in os.environ and os.environ["GLOO_ALGORITHM"] == "PHUB":
     #     max_concurrent_distributed_ops = sys.maxsize
     #     log.info("PHUB:: setting max_concurrent_distributed_ops to inf")
-    
+
+    if "Caffe2AlgorithmConcurrency" in os.environ:
+        max_concurrent_distributed_ops = int(
+            os.environ["Caffe2AlgorithmConcurrency"])
+        pass
+
+    log.info("max_concurrent_distributed_ops = %d" %
+             max_concurrent_distributed_ops)
     context = CollectivesConcurrencyControl(
         "allreduce",
         max_concurrent_distributed_ops,
@@ -1372,7 +1378,8 @@ def _AllReduceBlobsSingleHost(blob_names, devices, model, net, use_nccl):
 
                 else:
                     # Sparse gradients: all-gather for indices and values
-                    master_ns = "{}_{}".format(model._device_prefix, devices[0])
+                    master_ns = "{}_{}".format(
+                        model._device_prefix, devices[0])
                     '''
                     Skip if we have already copied concatenated indices
                     to the indices of GradientSlice. This happens when two
@@ -1393,7 +1400,8 @@ def _AllReduceBlobsSingleHost(blob_names, devices, model, net, use_nccl):
                             name="note:data_parallel_model")
 
                         for gpu, g in viewitems(model._device_grouped_blobs[blob_name]):
-                            device_opt = core.DeviceOption(model._device_type, gpu)
+                            device_opt = core.DeviceOption(
+                                model._device_type, gpu)
                             with core.DeviceScope(device_opt):
                                 model.Copy(grad_idx_concat, g.indices)
                                 concatenated_idx.add(g.indices)
@@ -1423,7 +1431,8 @@ def _BroadcastComputedParams(devices, model, rendezvous, use_nccl=False):
     if rendezvous is None:
         _BroadcastComputedParamsSingleHost(devices, model, use_nccl)
     else:
-        _BroadcastComputedParamsDistributed(devices, model, rendezvous, use_nccl)
+        _BroadcastComputedParamsDistributed(
+            devices, model, rendezvous, use_nccl)
 
 
 def _BroadcastComputedParamsDistributed(
@@ -1489,7 +1498,7 @@ def _AnalyzeOperators(model):
         namescope = "{}_{}/".format(model._device_prefix, op_gpu)
         for inp in list(op.input) + list(op.output):
             if inp.startswith("{}_".format(model._device_prefix)
-                             ) and not inp.startswith(namescope):
+                              ) and not inp.startswith(namescope):
                 raise Exception(
                     "Blob {} of op {}, should have namescope {}. Op: {}".format(
                         inp,
@@ -1524,6 +1533,7 @@ def _InferBlobDevice(model):
     map_ops(model.net.Proto())
     model._blob_to_device = mapping
 
+
 def _IsGPUBlob(model, blob_name):
     if blob_name in model._blob_to_device:
         return model._blob_to_device[blob_name].device_type == caffe2_pb2.CUDA
@@ -1556,13 +1566,16 @@ def _GroupByDevice(model, devices, params, non_data_params):
         if isinstance(p, core.BlobReference):
             gpuid = int(p.GetNameScope().split("_")[1].split("/")[0])
             assert "{}_{}/".format(model._device_prefix, gpuid) in p.GetNameScope(),\
-                "Param {} expected to have namescope '{}_{}'".format(str(p), model._device_prefix, gpuid)
+                "Param {} expected to have namescope '{}_{}'".format(
+                    str(p), model._device_prefix, gpuid)
         else:
             gpuid = int(p.indices.GetNameScope().split("_")[1].split("/")[0])
             assert "{}_{}/".format(model._device_prefix, gpuid) in p.indices.GetNameScope(),\
-                "Indices {} expected to have namescope '{}_{}'".format(str(p), model._device_prefix, gpuid)
+                "Indices {} expected to have namescope '{}_{}'".format(
+                    str(p), model._device_prefix, gpuid)
             assert "{}_{}/".format(model._device_prefix, gpuid) in p.values.GetNameScope(),\
-                "Values {} expected to have namescope '{}_{}'".format(str(p), model._device_prefix, gpuid)
+                "Values {} expected to have namescope '{}_{}'".format(
+                    str(p), model._device_prefix, gpuid)
 
         if name not in grouped:
             grouped[name] = {}
@@ -1609,7 +1622,7 @@ def _ComputeBlobsToSync(model):
         # Sanity check
         diff = set(model._param_names) - sync_names
         assert diff == set(), \
-           "Some params not instantiated in param init net: {}".format(diff)
+            "Some params not instantiated in param init net: {}".format(diff)
 
     # Remove duplicates and sort
     prefixlen = len(model._device_prefix) + 1
@@ -1629,7 +1642,7 @@ def _ComputeBlobsToSync(model):
 
 def _OptimizeGradientMemorySimple(model, losses_by_gpu, devices):
     log.warning("------- DEPRECATED API, please use " +
-                   "data_parallel_model.OptimizeGradientMemory() ----- ")
+                "data_parallel_model.OptimizeGradientMemory() ----- ")
     for device in devices:
         namescope = "{}_{}/".format(model._device_prefix, device)
         model.net._net = memonger.share_grad_blobs(
@@ -1744,7 +1757,7 @@ def _CreateOrCloneCommonWorld(
         name = "{}_op".format(common_world_blob)
 
     if existing is not None:
-        #and "GLOO_ALGORITHM" in os.environ and os.environ["GLOO_ALGORITHM"] != "PHUB":
+        # and "GLOO_ALGORITHM" in os.environ and os.environ["GLOO_ALGORITHM"] != "PHUB":
         comm_world = net.CloneCommonWorld(
             [existing],
             common_world_blob,
@@ -1753,7 +1766,7 @@ def _CreateOrCloneCommonWorld(
             status_blob=status_blob,
         )
     else:
-        kwargs=dict()
+        kwargs = dict()
         if 'transport' in rendezvous:
             kwargs['transport'] = rendezvous['transport']
         if 'interface' in rendezvous:
@@ -1789,7 +1802,7 @@ def _RunComparison(model, blob_name, device=None):
 
         comparison_net = core.Net("allcompare_net")
 
-        kwargs=dict()
+        kwargs = dict()
         if 'mpi_rendezvous' in rendezvous:
             kwargs['mpi_rendezvous'] = rendezvous['mpi_rendezvous']
         comm_world = comparison_net.CreateCommonWorld(
@@ -1846,7 +1859,7 @@ def _InterleaveOps(model):
     num_devices = len(model._devices)
     num_ops_per_dev = len(orig_ops) // num_devices
     assert num_devices * num_ops_per_dev == len(orig_ops), \
-           'Number of ops per device in original net is not uniform'
+        'Number of ops per device in original net is not uniform'
     new_ops = []
     ops = {d: [] for d in range(num_devices)}
     for op in orig_ops:
@@ -1916,7 +1929,8 @@ def _InterDeviceBatchNormalization(model):
                     new_ops.append(
                         core.CreateOperator("Copy", scale_blob, blob))
                 for blob in bias_grad_blobs:
-                    new_ops.append(core.CreateOperator("Copy", bias_blob, blob))
+                    new_ops.append(core.CreateOperator(
+                        "Copy", bias_blob, blob))
                 new_ops.extend(batch_norm_ops)
                 injected_ops = []
                 batch_norm_ops = []
