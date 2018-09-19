@@ -42,16 +42,10 @@ void AllreduceOp<Context>::initializeRingFull() {
 template <class Context>
 void AllreduceOp<Context>::initializePHub() {
   if (init_.template IsType<float>()) {
-    caffe2BuildPHubInstance(
-        status_blob_,
-        init_.template getOutputs<float>().at(0),
-        init_.size,
-        init_.context->size,
-        init_.context->rank);
+
     algorithm_.reset(new ::gloo::AllReducePHub<float>(
         init_.context, init_.template getOutputs<float>(), init_.size));
-    //((::gloo::AllReducePHub<float>*)algorithm_.get())->UseStandAlonePHub =
-    //    false;
+    ((::gloo::AllReducePHub<float>*)algorithm_.get())->runSharedPHubInitialization(status_blob_);
   } else {
     CAFFE_ENFORCE(false, "Unhandled type: ", init_.meta.name());
   }

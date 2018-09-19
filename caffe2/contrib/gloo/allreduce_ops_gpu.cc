@@ -59,27 +59,47 @@ void AllreduceOp<Context>::initializeHalvingDoubling() {
   }
 }
 
+std::unique_ptr<::gloo::Algorithm> initializePHubCore(
+    bool gpu_direct_,
+    std::shared_ptr<::gloo::Context> context,
+    std::vector<float*> ptrs,
+    size_t size,
+    std::string status_blob_) {
+  if (gpu_direct_) {
+    if (context->getDevice()->hasGPUDirect()) {
+      auto ret = new ::gloo::
+          CudaAllreducePHub<float, ::gloo::CudaDeviceWorkspace<float>>(
+              context, ptrs, size);
+      ret->runSharedPHubInitialization(status_blob_);
+      return std::unique_ptr<::gloo::Algorithm>(ret);
+    } else {
+      LOG(WARNING)
+          << "GPUDirect not available; "
+          << "Gloo communication will go through system memory instead.";
+    }
+  }
+  auto ret =
+      new ::gloo::CudaAllreducePHub<float, ::gloo::CudaHostWorkspace<float>>(
+          context, ptrs, size);
+  ret->runSharedPHubInitialization(status_blob_);
+  return std::unique_ptr<::gloo::Algorithm>(ret);
+}
+
 template <class Context>
 void AllreduceOp<Context>::initializePHub() {
   if (init_.template IsType<float>()) {
-    caffe2BuildPHubInstance(
-        status_blob_,
-        init_.template getOutputs<float>().at(0),
-        init_.size,
-        init_.context->size,
-        init_.context->rank);
-    algorithm_ = initializeAlgorithm<
-        ::gloo::CudaAllreducePHub,
-        float>(
-        gpu_direct_,
-        init_.context,
-        init_.template getOutputs<float>(),
-        init_.size);
-    // algorithm_ = initializePHubCore(
+    // algorithm_ = initializeAlgorithm<::gloo::CudaAllreducePHub, float>(
     //     gpu_direct_,
     //     init_.context,
     //     init_.template getOutputs<float>(),
     //     init_.size);
+
+    algorithm_ = initializePHubCore(
+        gpu_direct_,
+        init_.context,
+        init_.template getOutputs<float>(),
+        init_.size,
+        status_blob_);
   } else {
     CAFFE_ENFORCE(false, "Unhandled type: ", init_.meta.name());
   }
