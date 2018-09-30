@@ -1,4 +1,4 @@
-## @package resnet
+# @package resnet
 # Module caffe2.python.models.resnet
 
 from __future__ import absolute_import
@@ -205,8 +205,116 @@ class ResNetBuilder():
         self.comp_count += 1
 
 
+def create_resnet(num_layers,
+                  model,
+                  data,
+                  num_input_channels,
+                  num_labels,
+                  label=None,
+                  is_test=False,
+                  no_loss=False,
+                  no_bias=0,
+                  conv1_kernel=7,
+                  conv1_stride=2,
+                  final_avg_kernel=7):
+    brew.conv(
+        model,
+        data,
+        'conv1',
+        num_input_channels,
+        64,
+        weight_init=("MSRAFill", {}),
+        kernel=conv1_kernel,
+        stride=conv1_stride,
+        pad=3,
+        no_bias=no_bias
+    )
+
+    brew.spatial_bn(
+        model,
+        'conv1',
+        'conv1_spatbn_relu',
+        64,
+        epsilon=1e-3,
+        momentum=0.1,
+        is_test=is_test
+    )
+    brew.relu(model, 'conv1_spatbn_relu', 'conv1_spatbn_relu')
+    brew.max_pool(model, 'conv1_spatbn_relu', 'pool1', kernel=3, stride=2)
+
+    # Residual blocks...
+    builder = ResNetBuilder(model, 'pool1', no_bias=no_bias,
+                            is_test=is_test, spatial_bn_mom=0.1)
+
+    if num_layers == 34:
+        units = [3, 4, 6, 3]
+    elif num_layers == 50:
+        units = [3, 4, 6, 3]
+    elif num_layers == 101:
+        units = [3, 4, 23, 3]
+    elif num_layers == 152:
+        units = [3, 8, 36, 3]
+    elif num_layers == 200:
+        units = [3, 24, 36, 3]
+    elif num_layers == 269:
+        units = [3, 30, 48, 8]
+    else:
+        raise ValueError("no experiments done on num_layers {}, you can do it yourself".format(num_layers)) 
+
+    # conv2_x (ref Table 1 in He et al. (2015))
+    builder.add_bottleneck(64, 64, 256)
+    builder.add_bottleneck(256, 64, 256)
+    builder.add_bottleneck(256, 64, 256)
+
+    # conv3_x
+    builder.add_bottleneck(256, 128, 512, down_sampling=True)
+    for _ in range(1, units[1]):
+        builder.add_bottleneck(512, 128, 512)
+
+    # conv4_x
+    builder.add_bottleneck(512, 256, 1024, down_sampling=True)
+    for _ in range(1, units[2]):
+        builder.add_bottleneck(1024, 256, 1024)
+
+    # conv5_x
+    builder.add_bottleneck(1024, 512, 2048, down_sampling=True)
+    for _ in range(1, units[3] - 1):
+        builder.add_bottleneck(2048, 512, 2048)
+
+    # Final layers
+    final_avg = brew.average_pool(
+        model,
+        builder.prev_blob,
+        'final_avg',
+        kernel=final_avg_kernel,
+        stride=1,
+        global_pooling=True,
+    )
+
+    # Final dimension of the "image" is reduced to 7x7
+    last_out = brew.fc(
+        model, final_avg, 'last_out_L{}'.format(num_labels), 2048, num_labels
+    )
+
+    if no_loss:
+        return last_out
+
+    # If we create model for training, use softmax-with-loss
+    if (label is not None):
+        (softmax, loss) = model.SoftmaxWithLoss(
+            [last_out, label],
+            ["softmax", "loss"],
+        )
+
+        return (softmax, loss)
+    else:
+        # For inference, we just return softmax
+        return brew.softmax(model, last_out, "softmax")
+
 # The conv1 and final_avg kernel/stride args provide a basic mechanism for
 # adapting resnet50 for different sizes of input images.
+
+
 def create_resnet50(
     model,
     data,
@@ -300,6 +408,7 @@ def create_resnet50(
         # For inference, we just return softmax
         return brew.softmax(model, last_out, "softmax")
 
+
 def create_resnet200(
     model,
     data,
@@ -391,8 +500,8 @@ def create_resnet200(
     else:
         # For inference, we just return softmax
         return brew.softmax(model, last_out, "softmax")
-    
-    
+
+
 def create_resnet269(
     model,
     data,
@@ -489,6 +598,7 @@ def create_resnet269(
     else:
         # For inference, we just return softmax
         return brew.softmax(model, last_out, "softmax")
+
 
 def create_resnet_32x32(
     model, data, num_input_channels, num_groups, num_labels, is_test=False

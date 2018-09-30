@@ -339,7 +339,8 @@ def Train(args):
                             BiasInitializer=initializer,
                             enable_tensor_core=args.enable_tensor_core,
                             float16_compute=args.float16_compute):
-            pred = resnet.create_resnet50(
+            pred = resnet.create_resnet(
+                args.layers,
                 model,
                 "data",
                 num_input_channels=args.num_channels,
@@ -631,6 +632,7 @@ def main():
     parser.add_argument("--distributed_interfaces", type=str, default="",
                         help="Network interfaces to use for distributed run")
     parser.add_argument("--notify-frequency", type=int, help="Report average speed every...")
+    parser.add_argument("--layers", type=int, default=50, help="layers of NN to build.")
 
     args = parser.parse_args()
 
