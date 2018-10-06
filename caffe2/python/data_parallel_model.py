@@ -1250,7 +1250,8 @@ class CollectivesConcurrencyControl(object):
             control_input = self.control_inputs[current_slot]
             self.control_inputs[current_slot] = control_output_blob
         self.counter += 1
-        print (self.counter, common_world, control_input)
+        print (self.counter, common_world, control_input,
+               self.max_concurrent_context)
         return common_world, control_input
 
 
