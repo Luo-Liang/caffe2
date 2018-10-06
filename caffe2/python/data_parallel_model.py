@@ -1224,7 +1224,7 @@ class CollectivesConcurrencyControl(object):
     ):
         self.name = name
         self.param_init_net = param_init_net
-        self.max_concurrent_context = max_concurrent_context
+        self.max_concurrent_context = 1024 # max_concurrent_context
         self.counter = 0
         self.common_worlds = []
         self.control_inputs = []
