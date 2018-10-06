@@ -1290,7 +1290,7 @@ def _AllReduceBlobsDistributed(
     )
 
     nccl_control_blob = None
-
+    log.info("master_device_opt = %s" % master_device_opt)
     for blob_name in blob_names:
         master_blob = model._device_grouped_blobs[blob_name][devices[0]]
         blobs_group = list(viewvalues(model._device_grouped_blobs[blob_name]))
