@@ -138,7 +138,13 @@ def Parallelize(
             assert "Shared model only supported on single-node currently"
 
     log.info("Parallelizing model for devices: {}".format(devices))
+        
     extra_workers = 8 if rendezvous is not None else 0  # best-guess
+
+    if "PHUB_EXTRA_WORKERS_PER_DEVICE" in os.environ:
+        extra_workers = int(os.environ["PHUB_EXTRA_WORKERS_PER_DEVICE"])
+        pass
+
     num_workers = len(devices) * num_threads_per_device + extra_workers
     max_concurrent_distributed_ops =\
         min(max_concurrent_distributed_ops, num_workers - 1)
@@ -1250,8 +1256,8 @@ class CollectivesConcurrencyControl(object):
             control_input = self.control_inputs[current_slot]
             self.control_inputs[current_slot] = control_output_blob
         self.counter += 1
-        print (self.counter, common_world, control_input,
-               self.max_concurrent_context)
+        #print (self.counter, common_world, control_input,
+        #       self.max_concurrent_context)
         return common_world, control_input
 
 
