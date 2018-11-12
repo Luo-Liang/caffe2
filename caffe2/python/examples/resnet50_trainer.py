@@ -321,7 +321,7 @@ def Train(args):
             kv_handler=store_handler,
             shard_id=shard_id,
             num_shards=num_shards,
-            engine="GLOO",
+            engine=args.distributed_engine,
             transport=args.distributed_transport,
             interface=interfaces[0],
             exit_nets=None)
@@ -440,6 +440,7 @@ def Train(args):
         cpu_device=args.use_cpu,
         shared_model=args.use_cpu,
         combine_spatial_bn=args.use_cpu,
+        use_nccl=args.distributed_engine == 'NCCL'
     )
 
     if args.model_parallel:
@@ -633,7 +634,7 @@ def main():
                         help="Network interfaces to use for distributed run")
     parser.add_argument("--notify-frequency", type=int, help="Report average speed every...")
     parser.add_argument("--layers", type=int, default=50, help="layers of NN to build.")
-
+    parser.add_argument("--distributed-engine", type=str, default="GLOO", help="distributed backend to use")
     args = parser.parse_args()
 
     Train(args)
