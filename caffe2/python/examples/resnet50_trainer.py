@@ -181,7 +181,7 @@ def RunEpoch(
         #ignore the first 10 iterations
         if i == 10:
             #reset timer
-            ts = time.time
+            ts = time.time()
             pass
         if ( i - 10 )% updateEvery == 0 and i > 10:
             fmt = "Finished iteration {}/{} of epoch {} ({:.2f} images/sec)"
