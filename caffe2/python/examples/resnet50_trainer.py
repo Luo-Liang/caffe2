@@ -178,7 +178,12 @@ def RunEpoch(
             t2 = time.time()
             dt = t2 - t1
         updateEvery = args.notify_frequency
-        if i % updateEvery == 0 and i > 0:
+        #ignore the first 10 iterations
+        if i == 10:
+            #reset timer
+            ts = time.time
+            pass
+        if ( i - 10 )% updateEvery == 0 and i > 10:
             fmt = "Finished iteration {}/{} of epoch {} ({:.2f} images/sec)"
             te = time.time()
             td = te - ts
