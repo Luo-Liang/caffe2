@@ -168,6 +168,8 @@ def RunEpoch(
     log.info("Starting epoch {}/{}".format(epoch, args.num_epochs))
     epoch_iters = int(args.epoch_size / total_batch_size / num_shards)
     ts = time.time()
+    drop = 10
+    max = 0.0
     for i in range(epoch_iters):
         # This timeout is required (temporarily) since CUDA-NCCL
         # operators might deadlock when synchronizing between GPUs.
@@ -179,15 +181,19 @@ def RunEpoch(
             dt = t2 - t1
         updateEvery = args.notify_frequency
         #ignore the first 10 iterations
-        if i == 10:
+        if i == drop:
             #reset timer
             ts = time.time()
             pass
-        if ( i - 10 )% updateEvery == 0 and i > 10:
-            fmt = "Finished iteration {}/{} of epoch {} ({:.2f} images/sec)"
+        if ( i - drop )% updateEvery == 0 and i > drop:
+            fmt = "Finished iteration {}/{} of epoch {} ({:.2f} images/sec), max = {:.2f}"
             te = time.time()
             td = te - ts
-            log.info(fmt.format(i + 1, epoch_iters, epoch, updateEvery * total_batch_size / td))
+            currSpeed = updateEvery * total_batch_size / td
+            if max < currSpeed:
+                max = currSpeed
+                pass
+            log.info(fmt.format(i + 1, epoch_iters, epoch, currSpeed, max))
             ts = time.time()
             #prefix = "{}_{}".format(train_model._device_prefix, train_model._devices[0])
             #accuracy = workspace.FetchBlob(prefix + '/accuracy')
