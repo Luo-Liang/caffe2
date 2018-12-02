@@ -190,7 +190,7 @@ def RunEpoch(
             ts = time.time()
             pass
         if ( i - drop )% updateEvery == 0 and i > drop:
-            fmt = "Finished iteration {}/{} of epoch {} ({:.2f} images/sec), max = {:.2f}, median = {:2.f}"
+            fmt = "Finished iteration {}/{} of epoch {} ({:.2f} images/sec), max = {:.2f}, median = {}"
             te = time.time()
             td = te - ts
             currSpeed = updateEvery * total_batch_size / td
