@@ -170,6 +170,9 @@ def RunEpoch(
     ts = time.time()
     drop = 10
     max = 0.0
+
+    spans = []
+
     for i in range(epoch_iters):
         # This timeout is required (temporarily) since CUDA-NCCL
         # operators might deadlock when synchronizing between GPUs.
@@ -179,6 +182,7 @@ def RunEpoch(
             workspace.RunNet(train_model.net.Proto().name)
             t2 = time.time()
             dt = t2 - t1
+            spans.append(dt)
         updateEvery = args.notify_frequency
         #ignore the first 10 iterations
         if i == drop:
@@ -186,15 +190,16 @@ def RunEpoch(
             ts = time.time()
             pass
         if ( i - drop )% updateEvery == 0 and i > drop:
-            fmt = "Finished iteration {}/{} of epoch {} ({:.2f} images/sec), max = {:.2f}"
+            fmt = "Finished iteration {}/{} of epoch {} ({:.2f} images/sec), max = {:.2f}, median = {:2.f}"
             te = time.time()
             td = te - ts
             currSpeed = updateEvery * total_batch_size / td
             if max < currSpeed:
                 max = currSpeed
                 pass
-            log.info(fmt.format(i + 1, epoch_iters, epoch, currSpeed, max))
+            log.info(fmt.format(i + 1, epoch_iters, epoch, currSpeed, max, np.median(spans)))
             ts = time.time()
+            
             #prefix = "{}_{}".format(train_model._device_prefix, train_model._devices[0])
             #accuracy = workspace.FetchBlob(prefix + '/accuracy')
             #loss = workspace.FetchBlob(prefix + '/loss')
