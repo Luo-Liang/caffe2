@@ -182,7 +182,9 @@ def RunEpoch(
             workspace.RunNet(train_model.net.Proto().name)
             t2 = time.time()
             dt = t2 - t1
-            spans.append(dt)
+            if i > drop:
+                spans.append(dt)
+                pass
         updateEvery = args.notify_frequency
         #ignore the first 10 iterations
         if i == drop:
