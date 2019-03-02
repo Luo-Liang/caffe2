@@ -15,12 +15,18 @@ from caffe2.python import dyndep, optimizer, data_parallel_model_utils
 from caffe2.python import timeout_guard, model_helper, brew
 from caffe2.proto import caffe2_pb2
 
-import caffe2.python.models.resnet as resnet
+#import caffe2.python.models.resnet as resnet
 from caffe2.python.modeling.initializers import Initializer, PseudoFP16Initializer
 import caffe2.python.predictor.predictor_exporter as pred_exp
 import caffe2.python.predictor.predictor_py_utils as pred_utils
 from caffe2.python.predictor_constants import predictor_constants as predictor_constants
 import redis
+
+import models.alexnet
+import models.resnet
+import models.googlenet
+import models.vgg
+import models.cifar10
 
 '''
 Parallelized multi-GPU distributed trainer for Resnet 50. Can be used to train
@@ -348,7 +354,42 @@ def Train(args):
         rendezvous = None
 
     # Model building functions
-    def create_resnet50_model_ops(model, loss_scale):
+    # def create_resnet50_model_ops(model, loss_scale):
+    #     initializer = (PseudoFP16Initializer if args.dtype == 'float16'
+    #                    else Initializer)
+
+    #     with brew.arg_scope([brew.conv, brew.fc],
+    #                         WeightInitializer=initializer,
+    #                         BiasInitializer=initializer,
+    #                         enable_tensor_core=args.enable_tensor_core,
+    #                         float16_compute=args.float16_compute):
+    #         pred = resnet.create_resnet50(
+    #             #args.layers,
+    #             model,
+    #             "data",
+    #             num_input_channels=args.num_channels,
+    #             num_labels=args.num_labels,
+    #             no_bias=True,
+    #             no_loss=True,
+    #         )
+
+    #     if args.dtype == 'float16':
+    #         pred = model.net.HalfToFloat(pred, pred + '_fp32')
+
+    #     softmax, loss = model.SoftmaxWithLoss([pred, 'label'],
+    #                                           ['softmax', 'loss'])
+    #     loss = model.Scale(loss, scale=loss_scale)
+    #     brew.accuracy(model, [softmax, "label"], "accuracy")
+    #     return [loss]
+
+    def create_model_ops(model, loss_scale):
+        return create_model_ops_testable(model, loss_scale, is_test=False)
+        
+    def create_model_ops_test(model, loss_scale):
+        return create_model_ops_testable(model, loss_scale, is_test=True)
+        
+    # Model building functions
+    def create_model_ops_testable(model, loss_scale, is_test=False):
         initializer = (PseudoFP16Initializer if args.dtype == 'float16'
                        else Initializer)
 
@@ -357,16 +398,85 @@ def Train(args):
                             BiasInitializer=initializer,
                             enable_tensor_core=args.enable_tensor_core,
                             float16_compute=args.float16_compute):
-            pred = resnet.create_resnet50(
-                #args.layers,
-                model,
-                "data",
-                num_input_channels=args.num_channels,
-                num_labels=args.num_labels,
-                no_bias=True,
-                no_loss=True,
-            )
 
+            if args.model == "cifar10":
+                if args.image_size != 32:
+                    log.warn("Cifar10 expects a 32x32 image.")
+                pred = models.cifar10.create_cifar10(
+                    model,
+                    "data",
+                    image_channels=args.num_channels,
+                    num_classes=args.num_labels,
+                    image_height=args.image_size,
+                    image_width=args.image_size,
+                )
+            elif args.model == "resnet32x32":
+                if args.image_size != 32:
+                    log.warn("ResNet32x32 expects a 32x32 image.")
+                pred = models.resnet.create_resnet32x32(
+                    model,
+                    "data",
+                    num_layers=args.num_layers,
+                    num_input_channels=args.num_channels,
+                    num_labels=args.num_labels,
+                    is_test=is_test
+                )
+            elif args.model == "resnet":
+                if args.image_size != 224:
+                    log.warn("ResNet expects a 224x224 image.")
+                pred = resnet.create_resnet50(
+                    #args.layers,
+                    model,
+                    "data",
+                    num_input_channels=args.num_channels,
+                    num_labels=args.num_labels,
+                    no_bias=True,
+                    no_loss=True,
+                )
+            elif args.model == "vgg":
+                if args.image_size != 224:
+                    log.warn("VGG expects a 224x224 image.")
+                pred = models.vgg.create_vgg(
+                    model,
+                    "data",
+                    num_input_channels=args.num_channels,
+                    num_labels=args.num_labels,
+                    num_layers=args.num_layers,
+                    is_test=is_test
+                )
+            elif args.model == "googlenet":
+                if args.image_size != 224:
+                    log.warn("GoogLeNet expects a 224x224 image.")
+                pred = models.googlenet.create_googlenet(
+                    model,
+                    "data",
+                    num_input_channels=args.num_channels,
+                    num_labels=args.num_labels,
+                    is_test=is_test
+                )
+            elif args.model == "alexnet":
+                if args.image_size != 224:
+                    log.warn("Alexnet expects a 224x224 image.")
+                pred = models.alexnet.create_alexnet(
+                    model,
+                    "data",
+                    num_input_channels=args.num_channels,
+                    num_labels=args.num_labels,
+                    is_test=is_test
+                )
+            elif args.model == "alexnetv0":
+                if args.image_size != 224:
+                    log.warn("Alexnet v0 expects a 224x224 image.")
+                pred = models.alexnet.create_alexnetv0(
+                    model,
+                    "data",
+                    num_input_channels=args.num_channels,
+                    num_labels=args.num_labels,
+                    is_test=is_test
+                )
+            else:
+                raise NotImplementedError("Network {} not found.".format(args.model))
+                
         if args.dtype == 'float16':
             pred = model.net.HalfToFloat(pred, pred + '_fp32')
 
@@ -449,7 +559,7 @@ def Train(args):
     data_parallel_model.Parallelize(
         train_model,
         input_builder_fun=add_image_input,
-        forward_pass_builder_fun=create_resnet50_model_ops,
+        forward_pass_builder_fun=create_model_ops,
         optimizer_builder_fun=add_optimizer,
         post_sync_builder_fun=add_post_sync_ops,
         devices=gpus,
@@ -526,7 +636,7 @@ def Train(args):
         data_parallel_model.Parallelize(
             test_model,
             input_builder_fun=test_input_fn,
-            forward_pass_builder_fun=create_resnet50_model_ops,
+            forward_pass_builder_fun=create_model_ops_test,
             post_sync_builder_fun=add_post_sync_ops,
             param_update_builder_fun=None,
             devices=gpus,
