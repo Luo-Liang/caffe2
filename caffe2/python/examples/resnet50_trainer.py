@@ -22,11 +22,9 @@ import caffe2.python.predictor.predictor_py_utils as pred_utils
 from caffe2.python.predictor_constants import predictor_constants as predictor_constants
 import redis
 
-import models.alexnet
-import models.resnet
-import models.googlenet
-import models.vgg
-import models.cifar10
+import caffe2.python.models.resnet as resnet
+import caffe2.python.models.alexnet as alexnet
+import caffe2.python.models.vgg as vgg
 
 '''
 Parallelized multi-GPU distributed trainer for Resnet 50. Can be used to train
@@ -436,7 +434,7 @@ def Train(args):
             elif args.model == "vgg":
                 if args.image_size != 224:
                     log.warn("VGG expects a 224x224 image.")
-                pred = models.vgg.create_vgg(
+                pred = vgg.create_vgg(
                     model,
                     "data",
                     num_input_channels=args.num_channels,
@@ -447,7 +445,7 @@ def Train(args):
             elif args.model == "googlenet":
                 if args.image_size != 224:
                     log.warn("GoogLeNet expects a 224x224 image.")
-                pred = models.googlenet.create_googlenet(
+                pred = googlenet.create_googlenet(
                     model,
                     "data",
                     num_input_channels=args.num_channels,
@@ -457,7 +455,7 @@ def Train(args):
             elif args.model == "alexnet":
                 if args.image_size != 224:
                     log.warn("Alexnet expects a 224x224 image.")
-                pred = models.alexnet.create_alexnet(
+                pred = alexnet.create_alexnet(
                     model,
                     "data",
                     num_input_channels=args.num_channels,
@@ -467,7 +465,7 @@ def Train(args):
             elif args.model == "alexnetv0":
                 if args.image_size != 224:
                     log.warn("Alexnet v0 expects a 224x224 image.")
-                pred = models.alexnet.create_alexnetv0(
+                pred = alexnet.create_alexnetv0(
                     model,
                     "data",
                     num_input_channels=args.num_channels,
@@ -761,7 +759,7 @@ def main():
     parser.add_argument("--distributed_interfaces", type=str, default="",
                         help="Network interfaces to use for distributed run")
     parser.add_argument("--notify-frequency", type=int, help="Report average speed every...")
-    parser.add_argument("--layers", type=int, default=50, help="layers of NN to build.")
+    parser.add_argument("--num-layers", type=int, default=50, help="layers of NN to build.")
     parser.add_argument("--use-nccl", type=bool, default=False, help="distributed backend to use, aka NCCL")
     parser.add_argument("--model", type=str, default='resnet')
     args = parser.parse_args()
