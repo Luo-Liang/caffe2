@@ -763,6 +763,7 @@ def main():
     parser.add_argument("--notify-frequency", type=int, help="Report average speed every...")
     parser.add_argument("--layers", type=int, default=50, help="layers of NN to build.")
     parser.add_argument("--use-nccl", type=bool, default=False, help="distributed backend to use, aka NCCL")
+    parser.add_argument("--model", type=str, default='resnet')
     args = parser.parse_args()
 
     Train(args)
