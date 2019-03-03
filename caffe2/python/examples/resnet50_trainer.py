@@ -196,14 +196,14 @@ def RunEpoch(
             ts = time.time()
             pass
         if ( i - drop )% updateEvery == 0 and i > drop:
-            fmt = "Finished iteration {}/{} of epoch {} ({:.2f} images/sec), max = {:.2f}, avg = {:.2f}, median = {}"
+            fmt = "Finished iteration {}/{} of epoch {} ({:.2f} images/sec), max = {:.2f}, avg = {:.2f}, median = {}. thru = {}"
             te = time.time()
             td = te - ts
             currSpeed = updateEvery * total_batch_size / td
             if max < currSpeed:
                 max = currSpeed
                 pass
-            log.info(fmt.format(i + 1, epoch_iters, epoch, currSpeed, max, np.mean(spans), np.median(spans)))
+            log.info(fmt.format(i + 1, epoch_iters, epoch, currSpeed, max, np.mean(spans), np.median(spans), 1 / np.median(spans)))
             ts = time.time()
             
             #prefix = "{}_{}".format(train_model._device_prefix, train_model._devices[0])
