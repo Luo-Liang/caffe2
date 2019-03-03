@@ -721,7 +721,7 @@ def main():
                         help="Number of labels")
     parser.add_argument("--batch_size", type=int, default=32,
                         help="Batch size, total over all GPUs")
-    parser.add_argument("--epoch_size", type=int, default=1500000,
+    parser.add_argument("--epoch_size", type=int, default=15000000,
                         help="Number of images/epoch, total over all machines")
     parser.add_argument("--num_epochs", type=int, default=1000,
                         help="Num epochs.")
