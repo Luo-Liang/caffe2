@@ -62,7 +62,7 @@ def AddImageInput(model, reader, batch_size, img_size, dtype, is_test):
         batch_size=batch_size,
         output_type=dtype,
         use_gpu_transform=True if model._device_type == 1 else False,
-        use_caffe_datum=True,
+        use_caffe_datum=False,
         mean=128.,
         std=128.,
         scale=256,
