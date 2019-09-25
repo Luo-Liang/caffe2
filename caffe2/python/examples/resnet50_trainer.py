@@ -422,7 +422,7 @@ def Train(args):
                 )
             elif args.model == "resnet":
                 if args.image_size != 224:
-                    log.warn("ResNet expects a 224x224 image.")
+                    log.warn("ResNet expects a 224x224 image. input image = %d" % args.image_size)
                 pred = resnet.create_resnet50(
                     #args.layers,
                     model,
