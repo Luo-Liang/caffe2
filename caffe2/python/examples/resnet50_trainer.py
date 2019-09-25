@@ -206,11 +206,11 @@ def RunEpoch(
             log.info(fmt.format(i + 1, epoch_iters, epoch, currSpeed, max, np.mean(spans), np.median(spans), 1. / np.median(spans), 1./np.mean(spans) ))
             ts = time.time()
             
-            #prefix = "{}_{}".format(train_model._device_prefix, train_model._devices[0])
-            #accuracy = workspace.FetchBlob(prefix + '/accuracy')
-            #loss = workspace.FetchBlob(prefix + '/loss')
-            #train_fmt = "Training loss: {}, accuracy: {}"
-            #log.info(train_fmt.format(loss, accuracy))
+            prefix = "{}_{}".format(train_model._device_prefix, train_model._devices[0])
+            accuracy = workspace.FetchBlob(prefix + '/accuracy')
+            loss = workspace.FetchBlob(prefix + '/loss')
+            train_fmt = "Training loss: {}, accuracy: {}"
+            log.info(train_fmt.format(loss, accuracy))
         
         
 
