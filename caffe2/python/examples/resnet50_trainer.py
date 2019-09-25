@@ -764,7 +764,7 @@ def main():
     parser.add_argument("--use-nccl", type=bool, default=False, help="distributed backend to use, aka NCCL")
     parser.add_argument("--model", type=str, default='resnet')
     args = parser.parse_args()
-
+    print("request epochs = %d" % args.num_epochs)
     Train(args)
 
 if __name__ == '__main__':
