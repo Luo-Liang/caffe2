@@ -250,6 +250,7 @@ def RunEpoch(
     assert loss < 40, "Exploded gradients :("
 
     # TODO: add checkpointing
+    print("accuracy = %s. test_acc = %s" % (accuracy, test_accuracy))
     return epoch + 1
 
 
