@@ -770,3 +770,4 @@ def main():
 if __name__ == '__main__':
     workspace.GlobalInit(['caffe2', '--caffe2_log_level=2'])
     main()
+    print("shutting down script")
