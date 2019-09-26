@@ -81,7 +81,7 @@ class AllreduceOp final : public Operator<Context> {
       } else if (strcmp(algo, "PHUB") == 0) {
         mode = PHUB;
       } else {
-        assert(false);
+        CAFFE_ENFORCE(false);
       }
     }
     auto bytes = Input(1).nbytes();
